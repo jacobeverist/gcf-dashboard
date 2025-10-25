@@ -7,12 +7,13 @@
  * Serialize network to JSON
  * @param {Array} nodes - ReactFlow nodes
  * @param {Array} edges - ReactFlow edges
+ * @param {Object} dataSources - Data source configs from dataSourceStore
  * @param {string} demoKey - Current demo key
  * @returns {Object} Serialized network
  */
-export function serializeNetwork(nodes, edges, demoKey = null) {
+export function serializeNetwork(nodes, edges, dataSources = {}, demoKey = null) {
     return {
-        version: '1.0',
+        version: '2.0', // Bumped for data source support
         demo: demoKey,
         timestamp: new Date().toISOString(),
         nodes: nodes.map((node) => ({
@@ -21,6 +22,10 @@ export function serializeNetwork(nodes, edges, demoKey = null) {
             position: node.position,
             data: {
                 label: node.data.label,
+                blockType: node.data.blockType,
+                sourceId: node.data.sourceId,
+                sourceType: node.data.sourceType,
+                params: node.data.params,
                 // Note: wasmHandle is not serialized as it's runtime-specific
             },
         })),
@@ -31,7 +36,13 @@ export function serializeNetwork(nodes, edges, demoKey = null) {
             sourceHandle: edge.sourceHandle,
             targetHandle: edge.targetHandle,
             type: edge.type,
+            data: edge.data,
         })),
+        // NEW: Serialize data source configurations
+        dataSources: Object.keys(dataSources).map((sourceId) => {
+            const source = dataSources[sourceId];
+            return source.getConfig();
+        }),
     };
 }
 
@@ -39,11 +50,12 @@ export function serializeNetwork(nodes, edges, demoKey = null) {
  * Download network as JSON file
  * @param {Array} nodes - ReactFlow nodes
  * @param {Array} edges - ReactFlow edges
+ * @param {Object} dataSources - Data source configs
  * @param {string} filename - Filename for download
  * @param {string} demoKey - Current demo key
  */
-export function downloadNetwork(nodes, edges, filename = 'network.json', demoKey = null) {
-    const data = serializeNetwork(nodes, edges, demoKey);
+export function downloadNetwork(nodes, edges, dataSources = {}, filename = 'network.json', demoKey = null) {
+    const data = serializeNetwork(nodes, edges, dataSources, demoKey);
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -129,12 +141,13 @@ export async function loadNetworkFromFile(file) {
  * Save network to localStorage
  * @param {Array} nodes - ReactFlow nodes
  * @param {Array} edges - ReactFlow edges
+ * @param {Object} dataSources - Data source configs
  * @param {string} key - localStorage key
  * @param {string} demoKey - Current demo key
  */
-export function saveToLocalStorage(nodes, edges, key = 'gnomics-network', demoKey = null) {
+export function saveToLocalStorage(nodes, edges, dataSources = {}, key = 'gnomics-network', demoKey = null) {
     try {
-        const data = serializeNetwork(nodes, edges, demoKey);
+        const data = serializeNetwork(nodes, edges, dataSources, demoKey);
         localStorage.setItem(key, JSON.stringify(data));
         console.log('[Persistence] Saved to localStorage');
         return true;

@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 import useNetworkStore from '../stores/networkStore';
 import useExecutionStore from '../stores/executionStore';
+import useDataSourceStore from '../stores/dataSourceStore';
 import { addBlock, connectBlocks } from '../utils/wasmBridge';
 import {
     downloadNetwork,
@@ -25,6 +26,10 @@ export default function useNetworkPersistence() {
     const currentDemo = useExecutionStore((state) => state.currentDemo);
     const setNetworkStatus = useExecutionStore((state) => state.setNetworkStatus);
 
+    const dataSources = useDataSourceStore((state) => state.sources);
+    const addSource = useDataSourceStore((state) => state.addSource);
+    const clearDataSources = useDataSourceStore((state) => state.clear);
+
     /**
      * Save network to file
      */
@@ -37,9 +42,9 @@ export default function useNetworkPersistence() {
         const timestamp = new Date().toISOString().split('T')[0];
         const filename = `network-${timestamp}.json`;
 
-        downloadNetwork(nodes, edges, filename, currentDemo);
+        downloadNetwork(nodes, edges, dataSources, filename, currentDemo);
         console.log('[Save] Network saved to file:', filename);
-    }, [nodes, edges, currentDemo]);
+    }, [nodes, edges, dataSources, currentDemo]);
 
     /**
      * Load network from file
@@ -61,36 +66,69 @@ export default function useNetworkPersistence() {
             try {
                 const data = await loadNetworkFromFile(file);
 
-                // Clear existing network
+                // Clear existing network and data sources
                 reset();
+                clearDataSources();
+
+                // Recreate data sources first
+                const sourceIdMap = {}; // Maps old source IDs to new source IDs
+                if (data.dataSources && Array.isArray(data.dataSources)) {
+                    for (const sourceConfig of data.dataSources) {
+                        const oldId = sourceConfig.id;
+                        const newId = addSource(sourceConfig.type, sourceConfig);
+                        sourceIdMap[oldId] = newId;
+                        console.log(`[Load] Recreated data source: ${sourceConfig.name} (${oldId} → ${newId})`);
+                    }
+                }
 
                 // Recreate nodes with WASM blocks
                 const newNodes = [];
                 const wasmHandles = [];
 
                 for (const nodeData of data.nodes) {
-                    // Create WASM block
-                    let wasmHandle = null;
-                    if (wasmNetwork) {
-                        wasmHandle = addBlock(wasmNetwork, nodeData.type, {});
-                        wasmHandles.push({ nodeId: nodeData.id, handle: wasmHandle });
-                    }
+                    const isDataSource = nodeData.type === 'DiscreteDataSource' || nodeData.type === 'ScalarDataSource';
 
-                    // Create ReactFlow node
-                    const node = {
-                        id: nodeData.id,
-                        type: nodeData.type,
-                        position: nodeData.position,
-                        data: {
-                            ...nodeData.data,
-                            wasmHandle,
-                            hasInput: true,
-                            hasOutput: true,
-                            hasContext:
-                                nodeData.type === 'SequenceLearner' || nodeData.type === 'ContextLearner',
-                        },
-                    };
-                    newNodes.push(node);
+                    if (isDataSource) {
+                        // Data source node
+                        const oldSourceId = nodeData.data.sourceId;
+                        const newSourceId = sourceIdMap[oldSourceId] || oldSourceId;
+
+                        const node = {
+                            id: nodeData.id,
+                            type: nodeData.type,
+                            position: nodeData.position,
+                            data: {
+                                ...nodeData.data,
+                                sourceId: newSourceId,
+                                hasInput: false,
+                                hasOutput: true,
+                            },
+                        };
+                        newNodes.push(node);
+                    } else {
+                        // WASM block
+                        let wasmHandle = null;
+                        if (wasmNetwork) {
+                            wasmHandle = addBlock(wasmNetwork, nodeData.type, {});
+                            wasmHandles.push({ nodeId: nodeData.id, handle: wasmHandle });
+                        }
+
+                        // Create ReactFlow node
+                        const node = {
+                            id: nodeData.id,
+                            type: nodeData.type,
+                            position: nodeData.position,
+                            data: {
+                                ...nodeData.data,
+                                wasmHandle,
+                                hasInput: true,
+                                hasOutput: true,
+                                hasContext:
+                                    nodeData.type === 'SequenceLearner' || nodeData.type === 'ContextLearner',
+                            },
+                        };
+                        newNodes.push(node);
+                    }
                 }
 
                 // Recreate edges and WASM connections
@@ -145,8 +183,8 @@ export default function useNetworkPersistence() {
      */
     const autoSave = useCallback(() => {
         if (nodes.length === 0) return;
-        saveToLocalStorage(nodes, edges, 'gnomics-network-autosave', currentDemo);
-    }, [nodes, edges, currentDemo]);
+        saveToLocalStorage(nodes, edges, dataSources, 'gnomics-network-autosave', currentDemo);
+    }, [nodes, edges, dataSources, currentDemo]);
 
     /**
      * Load network from localStorage
@@ -158,11 +196,109 @@ export default function useNetworkPersistence() {
             return false;
         }
 
-        // Similar reconstruction logic as loadNetwork
-        // (Simplified for now - can be expanded)
-        console.log('[AutoLoad] Autosave data available but reconstruction not implemented');
-        return false;
-    }, []);
+        try {
+            // Clear existing network and data sources
+            reset();
+            clearDataSources();
+
+            // Recreate data sources first
+            const sourceIdMap = {};
+            if (data.dataSources && Array.isArray(data.dataSources)) {
+                for (const sourceConfig of data.dataSources) {
+                    const oldId = sourceConfig.id;
+                    const newId = addSource(sourceConfig.type, sourceConfig);
+                    sourceIdMap[oldId] = newId;
+                    console.log(`[AutoLoad] Recreated data source: ${sourceConfig.name} (${oldId} → ${newId})`);
+                }
+            }
+
+            // Recreate nodes with WASM blocks
+            const newNodes = [];
+            const wasmHandles = [];
+
+            for (const nodeData of data.nodes) {
+                const isDataSource = nodeData.type === 'DiscreteDataSource' || nodeData.type === 'ScalarDataSource';
+
+                if (isDataSource) {
+                    // Data source node
+                    const oldSourceId = nodeData.data.sourceId;
+                    const newSourceId = sourceIdMap[oldSourceId] || oldSourceId;
+
+                    const node = {
+                        id: nodeData.id,
+                        type: nodeData.type,
+                        position: nodeData.position,
+                        data: {
+                            ...nodeData.data,
+                            sourceId: newSourceId,
+                            hasInput: false,
+                            hasOutput: true,
+                        },
+                    };
+                    newNodes.push(node);
+                } else {
+                    // WASM block
+                    let wasmHandle = null;
+                    if (wasmNetwork) {
+                        wasmHandle = addBlock(wasmNetwork, nodeData.type, {});
+                        wasmHandles.push({ nodeId: nodeData.id, handle: wasmHandle });
+                    }
+
+                    const node = {
+                        id: nodeData.id,
+                        type: nodeData.type,
+                        position: nodeData.position,
+                        data: {
+                            ...nodeData.data,
+                            wasmHandle,
+                            hasInput: true,
+                            hasOutput: true,
+                            hasContext:
+                                nodeData.type === 'SequenceLearner' || nodeData.type === 'ContextLearner',
+                        },
+                    };
+                    newNodes.push(node);
+                }
+            }
+
+            // Recreate edges and WASM connections
+            const newEdges = [];
+            for (const edgeData of data.edges) {
+                const sourceHandle = wasmHandles.find((h) => h.nodeId === edgeData.source)?.handle;
+                const targetHandle = wasmHandles.find((h) => h.nodeId === edgeData.target)?.handle;
+
+                if (wasmNetwork && sourceHandle && targetHandle) {
+                    connectBlocks(wasmNetwork, sourceHandle, targetHandle, edgeData.type || 'input');
+                }
+
+                const edge = {
+                    id: edgeData.id,
+                    source: edgeData.source,
+                    target: edgeData.target,
+                    sourceHandle: edgeData.sourceHandle,
+                    targetHandle: edgeData.targetHandle,
+                    type: edgeData.type || 'input',
+                };
+                newEdges.push(edge);
+            }
+
+            // Update stores
+            setNodes(newNodes);
+            setEdges(newEdges);
+            setNetworkStatus(`Network: ${newNodes.length} blocks`);
+
+            console.log('[AutoLoad] Network loaded from autosave:', {
+                nodes: newNodes.length,
+                edges: newEdges.length,
+                dataSources: Object.keys(sourceIdMap).length,
+            });
+
+            return true;
+        } catch (error) {
+            console.error('[AutoLoad] Failed to load autosave:', error);
+            return false;
+        }
+    }, [wasmNetwork, reset, clearDataSources, addSource, setNodes, setEdges, setNetworkStatus]);
 
     return {
         saveNetwork,

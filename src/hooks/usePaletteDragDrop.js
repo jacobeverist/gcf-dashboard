@@ -2,6 +2,8 @@ import { useCallback } from 'react';
 import { useReactFlow } from '@xyflow/react';
 import useNetworkStore from '../stores/networkStore';
 import useExecutionStore from '../stores/executionStore';
+import useDataSourceStore from '../stores/dataSourceStore';
+import useCustomBlockStore from '../stores/customBlockStore';
 import { addBlock } from '../utils/wasmBridge';
 
 /**
@@ -11,6 +13,8 @@ export default function usePaletteDragDrop() {
     const { screenToFlowPosition } = useReactFlow();
     const addNode = useNetworkStore((state) => state.addNode);
     const wasmNetwork = useExecutionStore((state) => state.wasmNetwork);
+    const addSource = useDataSourceStore((state) => state.addSource);
+    const getBlockById = useCustomBlockStore((state) => state.getBlockById);
 
     /**
      * Handle drag start from palette
@@ -36,28 +40,75 @@ export default function usePaletteDragDrop() {
                 y: event.clientY,
             });
 
-            // Create WASM block
-            let wasmHandle = null;
-            if (wasmNetwork) {
-                wasmHandle = addBlock(wasmNetwork, blockType, {});
+            // Check if this is a data source
+            const isDataSource = blockType === 'DiscreteDataSource' || blockType === 'ScalarDataSource';
+
+            if (isDataSource) {
+                // Create data source instance
+                const blockDef = getBlockById(blockType);
+                const sourceType = blockType === 'DiscreteDataSource' ? 'discrete' : 'scalar';
+
+                // Get default parameters from block definition
+                const defaultParams = {};
+                if (blockDef && blockDef.params) {
+                    Object.entries(blockDef.params).forEach(([key, paramDef]) => {
+                        defaultParams[key] = paramDef.default;
+                    });
+                }
+
+                // Create data source in store
+                const sourceConfig = {
+                    name: getBlockLabel(blockType),
+                    ...defaultParams,
+                };
+                const sourceId = addSource(sourceType, sourceConfig);
+
+                // Create ReactFlow node for data source
+                const newNode = {
+                    type: blockType,
+                    position,
+                    data: {
+                        label: getBlockLabel(blockType),
+                        blockType,
+                        sourceId,
+                        sourceType,
+                        hasOutput: true,
+                        hasInput: false, // Data sources have no input
+                        enabled: true,
+                        params: defaultParams,
+                        pattern: defaultParams.pattern || 'sine',
+                        currentValue: null,
+                    },
+                };
+
+                addNode(newNode);
+                console.log(`[Palette] Created data source: ${blockType} (${sourceId})`);
+            } else {
+                // Create WASM block
+                let wasmHandle = null;
+                if (wasmNetwork) {
+                    wasmHandle = addBlock(wasmNetwork, blockType, {});
+                }
+
+                // Create ReactFlow node for WASM block
+                const newNode = {
+                    type: blockType,
+                    position,
+                    data: {
+                        label: getBlockLabel(blockType),
+                        blockType,
+                        wasmHandle,
+                        hasInput: true,
+                        hasOutput: true,
+                        hasContext: blockType === 'SequenceLearner' || blockType === 'ContextLearner',
+                    },
+                };
+
+                addNode(newNode);
+                console.log(`[Palette] Created WASM block: ${blockType} (${wasmHandle})`);
             }
-
-            // Create ReactFlow node
-            const newNode = {
-                type: blockType,
-                position,
-                data: {
-                    label: getBlockLabel(blockType),
-                    wasmHandle,
-                    hasInput: true,
-                    hasOutput: true,
-                    hasContext: blockType === 'SequenceLearner' || blockType === 'ContextLearner',
-                },
-            };
-
-            addNode(newNode);
         },
-        [screenToFlowPosition, addNode, wasmNetwork]
+        [screenToFlowPosition, addNode, wasmNetwork, addSource, getBlockById]
     );
 
     /**
@@ -80,11 +131,17 @@ export default function usePaletteDragDrop() {
  */
 function getBlockLabel(blockType) {
     const labels = {
+        // Data Sources
+        DiscreteDataSource: 'Discrete Source',
+        ScalarDataSource: 'Scalar Source',
+        // Transformers
         ScalarTransformer: 'Scalar Transformer',
         DiscreteTransformer: 'Discrete Transformer',
         PersistenceTransformer: 'Persistence Transformer',
+        // Learning
         PatternPooler: 'Pattern Pooler',
         PatternClassifier: 'Pattern Classifier',
+        // Temporal
         SequenceLearner: 'Sequence Learner',
         ContextLearner: 'Context Learner',
     };

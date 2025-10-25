@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { setScalarValue, setDiscreteValue } from '../utils/wasmBridge.js';
 
 const useExecutionStore = create((set, get) => ({
     // WASM State
@@ -57,15 +58,53 @@ const useExecutionStore = create((set, get) => ({
         });
     },
 
-    executeStep: () => {
+    executeStep: (dataSourceStore = null, networkStore = null) => {
         const { wasmNetwork, learningEnabled, executionStep } = get();
         if (!wasmNetwork) return;
 
         try {
-            // Execute the WASM network
+            // Step 1: Execute all data sources first (if store provided)
+            if (dataSourceStore) {
+                const sourceValues = dataSourceStore.executeAllSources();
+
+                // Step 2: Set values on connected transformer blocks (if networkStore provided)
+                if (networkStore && Object.keys(sourceValues).length > 0) {
+                    const { nodes, edges } = networkStore;
+
+                    // For each data source with a value
+                    Object.keys(sourceValues).forEach((sourceId) => {
+                        const value = sourceValues[sourceId];
+                        const source = dataSourceStore.getSource(sourceId);
+
+                        if (!source) return;
+
+                        // Find all edges from this data source
+                        const outgoingEdges = edges.filter((edge) => edge.source === sourceId);
+
+                        outgoingEdges.forEach((edge) => {
+                            // Find the target node
+                            const targetNode = nodes.find((node) => node.id === edge.target);
+
+                            if (!targetNode || !targetNode.data.wasmHandle) return;
+
+                            const handle = targetNode.data.wasmHandle;
+                            const targetType = targetNode.data.blockType;
+
+                            // Set the value on the appropriate transformer type
+                            if (source.type === 'scalar' && targetType === 'ScalarTransformer') {
+                                setScalarValue(wasmNetwork, handle, value);
+                            } else if (source.type === 'discrete' && targetType === 'DiscreteTransformer') {
+                                setDiscreteValue(wasmNetwork, handle, value);
+                            }
+                        });
+                    });
+                }
+            }
+
+            // Step 3: Execute the WASM network
             wasmNetwork.execute(learningEnabled);
 
-            // Increment step counter
+            // Step 4: Increment step counter
             set({ executionStep: executionStep + 1 });
         } catch (error) {
             console.error('Execution error:', error);

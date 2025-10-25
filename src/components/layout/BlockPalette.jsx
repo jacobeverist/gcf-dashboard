@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import useCustomBlockStore from '../../stores/customBlockStore';
+import CreateBlockModal from '../modals/CreateBlockModal';
 import '../../styles/palette.css';
 
 const PaletteItem = ({ blockType, icon, label, onDragStart }) => {
@@ -14,63 +17,77 @@ const PaletteItem = ({ blockType, icon, label, onDragStart }) => {
 };
 
 export default function BlockPalette({ onDragStart }) {
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const getBlocksByCategory = useCustomBlockStore(state => state.getBlocksByCategory);
+    const blocksByCategory = getBlocksByCategory();
+
     return (
         <div className="sidebar left" id="block-palette">
-            <h3>Block Palette</h3>
-
-            <div className="palette-category">
-                <div className="palette-category-header">Transformers</div>
-                <PaletteItem
-                    blockType="ScalarTransformer"
-                    icon={<div className="palette-icon triangle" style={{ borderBottomColor: 'var(--block-scalar)' }}></div>}
-                    label="Scalar"
-                    onDragStart={onDragStart}
-                />
-                <PaletteItem
-                    blockType="DiscreteTransformer"
-                    icon={<div className="palette-icon triangle" style={{ borderBottomColor: 'var(--block-discrete)' }}></div>}
-                    label="Discrete"
-                    onDragStart={onDragStart}
-                />
-                <PaletteItem
-                    blockType="PersistenceTransformer"
-                    icon={<div className="palette-icon triangle" style={{ borderBottomColor: 'var(--block-persistence)' }}></div>}
-                    label="Persistence"
-                    onDragStart={onDragStart}
-                />
+            <div className="palette-header">
+                <h3>Block Palette</h3>
+                <button
+                    className="palette-add-btn"
+                    onClick={() => setIsCreateModalOpen(true)}
+                    title="Create custom block"
+                >
+                    +
+                </button>
             </div>
 
-            <div className="palette-category">
-                <div className="palette-category-header">Learning</div>
-                <PaletteItem
-                    blockType="PatternPooler"
-                    icon={<div className="palette-icon horizontal-rect" style={{ background: 'var(--block-pooler)' }}></div>}
-                    label="Pooler"
-                    onDragStart={onDragStart}
-                />
-                <PaletteItem
-                    blockType="PatternClassifier"
-                    icon={<div className="palette-icon horizontal-rect" style={{ background: 'var(--block-classifier)' }}></div>}
-                    label="Classifier"
-                    onDragStart={onDragStart}
-                />
-            </div>
+            {/* Render categories dynamically */}
+            {Object.entries(blocksByCategory).map(([category, blocks]) => (
+                <div key={category} className="palette-category">
+                    <div className="palette-category-header">{category}</div>
+                    {blocks.map((block) => (
+                        <PaletteItem
+                            key={block.id}
+                            blockType={block.id}
+                            icon={
+                                block.isBuiltin ? (
+                                    // Built-in blocks use original styled icons
+                                    getBuiltinIcon(block.id)
+                                ) : (
+                                    // Custom blocks use emoji/text icons
+                                    <div
+                                        className="palette-icon-custom"
+                                        style={{ color: block.color }}
+                                    >
+                                        {block.icon}
+                                    </div>
+                                )
+                            }
+                            label={block.name}
+                            onDragStart={onDragStart}
+                        />
+                    ))}
+                </div>
+            ))}
 
-            <div className="palette-category">
-                <div className="palette-category-header">Temporal</div>
-                <PaletteItem
-                    blockType="SequenceLearner"
-                    icon={<div className="palette-icon square" style={{ background: 'var(--block-sequence)' }}></div>}
-                    label="Sequence"
-                    onDragStart={onDragStart}
-                />
-                <PaletteItem
-                    blockType="ContextLearner"
-                    icon={<div className="palette-icon square" style={{ background: 'var(--block-context)' }}></div>}
-                    label="Context"
-                    onDragStart={onDragStart}
-                />
-            </div>
+            {/* Create Block Modal */}
+            <CreateBlockModal
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+            />
         </div>
     );
+}
+
+// Helper function to render built-in icons with original styling
+function getBuiltinIcon(blockId) {
+    const iconMap = {
+        // Data Sources
+        DiscreteDataSource: <div className="palette-icon circle" style={{ background: 'var(--block-data-discrete)' }}></div>,
+        ScalarDataSource: <div className="palette-icon circle" style={{ background: 'var(--block-data-scalar)' }}></div>,
+        // Transformers
+        ScalarTransformer: <div className="palette-icon triangle" style={{ borderBottomColor: 'var(--block-scalar)' }}></div>,
+        DiscreteTransformer: <div className="palette-icon triangle" style={{ borderBottomColor: 'var(--block-discrete)' }}></div>,
+        PersistenceTransformer: <div className="palette-icon triangle" style={{ borderBottomColor: 'var(--block-persistence)' }}></div>,
+        // Learning
+        PatternPooler: <div className="palette-icon horizontal-rect" style={{ background: 'var(--block-pooler)' }}></div>,
+        PatternClassifier: <div className="palette-icon horizontal-rect" style={{ background: 'var(--block-classifier)' }}></div>,
+        // Temporal
+        SequenceLearner: <div className="palette-icon square" style={{ background: 'var(--block-sequence)' }}></div>,
+        ContextLearner: <div className="palette-icon square" style={{ background: 'var(--block-context)' }}></div>,
+    };
+    return iconMap[blockId] || <div className="palette-icon-custom">{blockId[0]}</div>;
 }

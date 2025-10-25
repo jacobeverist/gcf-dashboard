@@ -32,6 +32,10 @@
     --block-sequence: #E2E28D;
     --block-context: #8DE2E2;
 
+    /* Data Source Colors */
+    --block-data-scalar: #FFB366;      /* Warm orange for scalar data sources */
+    --block-data-discrete: #FF80AB;    /* Pink for discrete data sources */
+
     /* Spacing */
     --spacing-xs: 4px;
     --spacing-sm: 8px;

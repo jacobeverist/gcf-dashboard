@@ -5,12 +5,14 @@ import useNetworkStore from '../../stores/networkStore';
 import useDemoInitializer from '../../hooks/useDemoInitializer';
 import useLayoutAlgorithm from '../../hooks/useLayoutAlgorithm';
 import { getDemoDescriptions } from '../../utils/demoConfigs';
+import TemplateGallery from '../modals/TemplateGallery';
 
 const demoDescriptions = getDemoDescriptions();
 
 export default function Header() {
     const [selectedDemo, setSelectedDemo] = useState('');
     const [speed, setSpeedValue] = useState(50);
+    const [showTemplateGallery, setShowTemplateGallery] = useState(false);
 
     const isRunning = useExecutionStore((state) => state.isRunning);
     const wasmReady = useExecutionStore((state) => state.wasmReady);
@@ -131,6 +133,13 @@ export default function Header() {
                     >
                         Reset Layout
                     </button>
+                    <button
+                        id="template-gallery-btn"
+                        className="secondary"
+                        onClick={() => setShowTemplateGallery(true)}
+                    >
+                        📚 Templates
+                    </button>
                 </div>
                 <div className="control-group">
                     <label>Speed:</label>
@@ -170,6 +179,12 @@ export default function Header() {
                     <span id="demo-description">{demoDescription}</span>
                 </div>
             </div>
+
+            {/* Template Gallery Modal */}
+            <TemplateGallery
+                isOpen={showTemplateGallery}
+                onClose={() => setShowTemplateGallery(false)}
+            />
         </div>
     );
 }

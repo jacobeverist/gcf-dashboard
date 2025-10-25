@@ -31,6 +31,30 @@
     stroke: #ff8a4a;
 }
 
+/* Data Source Edge - Distinct cyan/orange color */
+.react-flow__edge.data-source-edge .react-flow__edge-path {
+    stroke-width: 2;
+}
+
+.react-flow__edge.data-source-edge.selected .react-flow__edge-path {
+    stroke-width: 3;
+}
+
+.react-flow__edge.data-source-edge:hover .react-flow__edge-path {
+    opacity: 0.8;
+}
+
+/* Animation for data flow */
+@keyframes dash {
+    to {
+        stroke-dashoffset: -10;
+    }
+}
+
+.data-source-edge-animated {
+    animation: dash 1s linear infinite;
+}
+
 /* Animated edges during execution */
 .react-flow__edge.animated .react-flow__edge-path {
     stroke-dasharray: 5;

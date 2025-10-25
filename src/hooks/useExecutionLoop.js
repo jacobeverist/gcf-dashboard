@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import useExecutionStore from '../stores/executionStore';
 import useNetworkStore from '../stores/networkStore';
 import useVisualizationStore from '../stores/visualizationStore';
-import { executeNetwork, getBlockState, getBlockOutput } from '../utils/wasmBridge';
+import useDataSourceStore from '../stores/dataSourceStore';
+import { executeNetwork, getBlockState, getBlockOutput, setScalarValue, setDiscreteValue } from '../utils/wasmBridge';
 
 /**
  * Hook to manage the execution loop
@@ -18,10 +19,14 @@ export default function useExecutionLoop() {
     const executionStep = useExecutionStore((state) => state.executionStep);
 
     const nodes = useNetworkStore((state) => state.nodes);
+    const edges = useNetworkStore((state) => state.edges);
     const updateNodeData = useNetworkStore((state) => state.updateNodeData);
 
     const updateTimeSeries = useVisualizationStore((state) => state.updateTimeSeries);
     const updateBitfield = useVisualizationStore((state) => state.updateBitfield);
+
+    const executeAllSources = useDataSourceStore((state) => state.executeAllSources);
+    const getSource = useDataSourceStore((state) => state.getSource);
 
     useEffect(() => {
         if (isRunning && wasmNetwork) {
@@ -51,13 +56,63 @@ export default function useExecutionLoop() {
         if (!wasmNetwork) return;
 
         try {
-            // Execute one step in the WASM network
+            // Step 1: Execute all data sources first
+            const sourceValues = executeAllSources();
+
+            // Step 2: Update data source nodes with current values
+            if (Object.keys(sourceValues).length > 0) {
+                Object.keys(sourceValues).forEach((sourceId) => {
+                    const value = sourceValues[sourceId];
+                    const source = getSource(sourceId);
+
+                    if (!source) return;
+
+                    // Update the data source node's current value
+                    const sourceNode = nodes.find((node) => node.data.sourceId === sourceId);
+                    if (sourceNode) {
+                        updateNodeData(sourceNode.id, {
+                            currentValue: value,
+                        });
+                    }
+
+                    // Find all edges from this data source
+                    const outgoingEdges = edges.filter((edge) => edge.source === sourceNode?.id);
+
+                    outgoingEdges.forEach((edge) => {
+                        // Enable animation on data source edges during execution
+                        if (edge.type === 'dataSource') {
+                            edge.data = { ...edge.data, animated: true };
+                        }
+
+                        // Find the target node
+                        const targetNode = nodes.find((node) => node.id === edge.target);
+
+                        if (!targetNode || !targetNode.data.wasmHandle) return;
+
+                        const handle = targetNode.data.wasmHandle;
+                        const targetType = targetNode.data.blockType;
+
+                        // Set the value on the appropriate transformer type
+                        try {
+                            if (source.type === 'scalar' && targetType === 'ScalarTransformer') {
+                                setScalarValue(wasmNetwork, handle, value);
+                            } else if (source.type === 'discrete' && targetType === 'DiscreteTransformer') {
+                                setDiscreteValue(wasmNetwork, handle, value);
+                            }
+                        } catch (error) {
+                            console.error(`[Execution Loop] Error setting value on ${targetType}:`, error);
+                        }
+                    });
+                });
+            }
+
+            // Step 3: Execute one step in the WASM network
             executeNetwork(wasmNetwork, learningEnabled);
 
             // Get current timestamp
             const timestamp = Date.now();
 
-            // Update state for all nodes
+            // Step 4: Update state for all nodes
             nodes.forEach((node) => {
                 const handle = node.data.wasmHandle;
                 if (handle === undefined) return;
@@ -82,7 +137,7 @@ export default function useExecutionLoop() {
                 updateTimeSeries(node.id, output, timestamp);
             });
 
-            // Increment step counter
+            // Step 5: Increment step counter
             useExecutionStore.setState((state) => ({
                 executionStep: state.executionStep + 1,
             }));

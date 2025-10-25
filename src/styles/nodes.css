@@ -50,6 +50,12 @@
     border-radius: 3px;
 }
 
+.node-icon.circle {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+}
+
 .node-content {
     display: flex;
     flex-direction: column;
@@ -138,6 +144,65 @@
 
 .custom-node.context {
     border-left: 3px solid var(--block-context);
+}
+
+/* Data Source Nodes */
+.custom-node.data-source-scalar {
+    border-left: 3px solid var(--block-data-scalar);
+}
+
+.custom-node.data-source-discrete {
+    border-left: 3px solid var(--block-data-discrete);
+}
+
+/* Data Source Info */
+.node-data-source-info {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-xs);
+    padding: 4px 6px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+}
+
+.data-source-type {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.data-source-pattern {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+/* Current Value Display */
+.node-current-value {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: var(--spacing-sm);
+    padding: 6px 8px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-secondary);
+}
+
+.value-label {
+    font-size: 10px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.value-display {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent-green);
+    font-family: 'Courier New', monospace;
 }
 
 /* React Flow Handle Customization */

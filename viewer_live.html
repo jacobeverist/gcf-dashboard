@@ -1,0 +1,3515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gnomics Live Visualizer (WASM)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        #container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        #header {
+            background: #2a2a2a;
+            padding: 15px 20px;
+            border-bottom: 2px solid #3a3a3a;
+        }
+
+        #header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+
+        #controls-bar {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .control-group label {
+            font-size: 13px;
+            color: #888;
+        }
+
+        select, button {
+            background: #3a3a3a;
+            color: #e0e0e0;
+            border: 1px solid #4a4a4a;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        button {
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #4a4a4a;
+        }
+
+        button.primary {
+            background: #4a9eff;
+            border-color: #4a9eff;
+        }
+
+        button.primary:hover {
+            background: #3a8eef;
+        }
+
+        button.danger {
+            background: #ff4a4a;
+            border-color: #ff4a4a;
+        }
+
+        button.danger:hover {
+            background: #ef3a3a;
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #status-bar {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #555;
+        }
+
+        .status-indicator.active {
+            background: #4aff4a;
+            box-shadow: 0 0 8px #4aff4a;
+        }
+
+        .status-indicator.learning {
+            background: #ff9a4a;
+            box-shadow: 0 0 8px #ff9a4a;
+        }
+
+        #main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        #network-panel {
+            flex: 1;
+            background: #1e1e1e;
+            border-right: 2px solid #3a3a3a;
+            position: relative;
+        }
+
+        #network-svg {
+            width: 100%;
+            height: 100%;
+        }
+
+        #bitfield-panel {
+            flex: 1;
+            background: #1e1e1e;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        #plots-section {
+            margin-bottom: 30px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        #plots-section h3 {
+            font-size: 14px;
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+
+        .plot-container {
+            margin-bottom: 20px;
+            background: #1e1e1e;
+            border-radius: 4px;
+            padding: 10px;
+        }
+
+        .plot-title {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .plot-svg {
+            width: 100%;
+            height: 150px;
+        }
+
+        .plot-line {
+            fill: none;
+            stroke-width: 2;
+        }
+
+        .plot-axis {
+            color: #888;
+            font-size: 10px;
+        }
+
+        .plot-axis path,
+        .plot-axis line {
+            stroke: #4a4a4a;
+        }
+
+        .plot-axis text {
+            fill: #888;
+        }
+
+        #bitfields-section h3 {
+            font-size: 14px;
+            color: #4a9eff;
+            margin-bottom: 10px;
+        }
+
+        .bitfield-block {
+            margin-bottom: 30px;
+            background: #2a2a2a;
+            border-radius: 6px;
+            padding: 15px;
+            border: 1px solid #3a3a3a;
+        }
+
+        .bitfield-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .bitfield-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #4a9eff;
+        }
+
+        .bitfield-stats {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .bitfield-grid {
+            display: grid;
+            gap: 1px;
+            grid-template-columns: repeat(auto-fill, minmax(8px, 1fr));
+            background: #1a1a1a;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .bitfield-cell {
+            aspect-ratio: 1;
+            background: #2a2a2a;
+            border-radius: 1px;
+            transition: background 0.15s;
+        }
+
+        .bitfield-cell.active {
+            background: #4a9eff;
+        }
+
+        #metrics-panel {
+            background: #2a2a2a;
+            padding: 15px 20px;
+            border-top: 2px solid #3a3a3a;
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            font-size: 13px;
+        }
+
+        .metric {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .metric-label {
+            color: #888;
+        }
+
+        .metric-value {
+            color: #4a9eff;
+            font-weight: 600;
+        }
+
+        .node {
+            cursor: pointer;
+        }
+
+        .node circle {
+            stroke: #4a9eff;
+            stroke-width: 2px;
+        }
+
+        .node text {
+            font-size: 12px;
+            fill: #e0e0e0;
+            pointer-events: none;
+        }
+
+        .link {
+            fill: none;
+        }
+
+        .link.context {
+            stroke-dasharray: 5, 5;
+        }
+
+        #empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #666;
+        }
+
+        #empty-state h2 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        #empty-state p {
+            font-size: 14px;
+            margin-bottom: 20px;
+        }
+
+        #loading-indicator {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(42, 42, 42, 0.95);
+            padding: 20px 40px;
+            border-radius: 8px;
+            border: 2px solid #4a9eff;
+            font-size: 14px;
+            z-index: 1000;
+        }
+
+        #loading-indicator.visible {
+            display: block;
+        }
+
+        .demo-description {
+            margin-top: 5px;
+            font-size: 11px;
+            color: #666;
+        }
+
+        /* Tooltip styles */
+        .block-tooltip {
+            position: absolute;
+            background: rgba(42, 42, 42, 0.95);
+            border: 2px solid #4a9eff;
+            border-radius: 6px;
+            padding: 12px;
+            pointer-events: none;
+            font-size: 12px;
+            z-index: 1000;
+            max-width: 300px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .block-tooltip.visible {
+            opacity: 1;
+        }
+
+        .tooltip-header {
+            font-weight: 600;
+            font-size: 14px;
+            color: #4a9eff;
+            margin-bottom: 4px;
+        }
+
+        .tooltip-type {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .tooltip-config {
+            color: #e0e0e0;
+            line-height: 1.4;
+        }
+
+        .tooltip-metrics {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #4a4a4a;
+            color: #4aff4a;
+        }
+
+        /* Highlighted bitfield block */
+        .bitfield-block.highlighted {
+            border: 2px solid #4a9eff;
+            box-shadow: 0 0 10px 2px rgba(74, 158, 255, 0.3);
+        }
+
+        .bitfield-block.highlighted.pulse {
+            animation: highlight-pulse 1s ease-out;
+        }
+
+        @keyframes highlight-pulse {
+            0% { box-shadow: 0 0 10px 2px rgba(74, 158, 255, 0.3); }
+            50% { box-shadow: 0 0 25px 8px rgba(74, 158, 255, 0.6); }
+            100% { box-shadow: 0 0 10px 2px rgba(74, 158, 255, 0.3); }
+        }
+
+        /* Block Palette Sidebar */
+        #block-palette {
+            width: 200px;
+            background: #2a2a2a;
+            border-right: 2px solid #3a3a3a;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        #block-palette h3 {
+            font-size: 14px;
+            color: #4a9eff;
+            padding: 15px;
+            margin: 0;
+            border-bottom: 1px solid #3a3a3a;
+        }
+
+        .palette-category {
+            border-bottom: 1px solid #3a3a3a;
+        }
+
+        .palette-category-header {
+            padding: 10px 15px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            background: #252525;
+        }
+
+        .palette-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 15px;
+            cursor: grab;
+            transition: background 0.2s;
+            border-bottom: 1px solid #2a2a2a;
+        }
+
+        .palette-item:hover {
+            background: #333;
+        }
+
+        .palette-item:active {
+            cursor: grabbing;
+        }
+
+        .palette-item.dragging {
+            opacity: 0.5;
+        }
+
+        .palette-icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+
+        .palette-icon.triangle {
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-bottom: 20px solid;
+            font-size: 0;
+        }
+
+        .palette-icon.horizontal-rect {
+            width: 32px;
+            height: 16px;
+        }
+
+        .palette-icon.square {
+            width: 24px;
+            height: 24px;
+        }
+
+        .palette-label {
+            font-size: 12px;
+            color: #e0e0e0;
+            flex: 1;
+        }
+
+        /* Editor Toolbar */
+        #editor-toolbar {
+            background: #252525;
+            border-bottom: 1px solid #3a3a3a;
+            padding: 8px 12px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .editor-tool {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            background: #3a3a3a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        .editor-tool:hover {
+            background: #4a4a4a;
+            border-color: #5a5a5a;
+        }
+
+        .editor-tool.active {
+            background: #4a9eff;
+            border-color: #4a9eff;
+            color: #fff;
+        }
+
+        .editor-tool:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .toolbar-separator {
+            width: 1px;
+            height: 24px;
+            background: #3a3a3a;
+            margin: 0 4px;
+        }
+
+        /* Parameter Editor Modal */
+        #param-editor-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #param-editor-modal.visible {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #2a2a2a;
+            border: 2px solid #4a9eff;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #4a9eff;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #3a3a3a;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px;
+            background: #1e1e1e;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            color: #e0e0e0;
+            font-size: 13px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+
+        .form-group .input-hint {
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #3a3a3a;
+        }
+
+        /* Visual Feedback */
+        .node.selected {
+            filter: drop-shadow(0 0 8px #4a9eff);
+        }
+
+        .node.selected .block-shape {
+            stroke: #4a9eff;
+            stroke-width: 3px;
+        }
+
+        .port.valid-target {
+            stroke: #4aff4a;
+            stroke-width: 2px;
+            filter: drop-shadow(0 0 4px #4aff4a);
+        }
+
+        .port.invalid-target {
+            stroke: #ff4a4a;
+            stroke-width: 2px;
+        }
+
+        .connection-preview {
+            stroke: #4a9eff;
+            stroke-width: 2px;
+            stroke-dasharray: 5, 5;
+            fill: none;
+            pointer-events: none;
+        }
+
+        .drag-ghost {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        /* Context Menu Enhancement */
+        .context-menu {
+            position: absolute;
+            background: #2a2a2a;
+            border: 1px solid #4a4a4a;
+            border-radius: 4px;
+            padding: 4px 0;
+            min-width: 150px;
+            z-index: 1500;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .context-menu-item {
+            padding: 8px 15px;
+            font-size: 12px;
+            color: #e0e0e0;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .context-menu-item:hover {
+            background: #3a3a3a;
+        }
+
+        .context-menu-item.danger {
+            color: #ff4a4a;
+        }
+
+        .context-menu-item.danger:hover {
+            background: rgba(255, 74, 74, 0.1);
+        }
+
+        .context-menu-separator {
+            height: 1px;
+            background: #3a3a3a;
+            margin: 4px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="header">
+            <h1>Gnomics Live Visualizer (WASM)</h1>
+            <div id="controls-bar">
+                <div class="control-group">
+                    <label>Demo:</label>
+                    <select id="demo-select">
+                        <option value="">-- Select Demo --</option>
+                        <option value="sequence">Sequence Learning</option>
+                        <option value="classification">Classification</option>
+                        <option value="context">Context Learning</option>
+                        <option value="pooling">Feature Pooling</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <button id="init-btn" class="primary" disabled>Initialize Network</button>
+                    <button id="start-btn" class="primary" disabled>Start</button>
+                    <button id="stop-btn" class="danger" disabled>Stop</button>
+                    <button id="reset-btn" disabled>Reset</button>
+                    <button id="reset-layout-btn" disabled>Reset Layout</button>
+                </div>
+                <div class="control-group">
+                    <label>Speed:</label>
+                    <input type="range" id="speed-slider" min="10" max="1000" value="100" style="width: 120px;">
+                    <span id="speed-display">100ms</span>
+                </div>
+                <div class="control-group">
+                    <label>
+                        <input type="checkbox" id="learning-toggle" checked>
+                        Learning
+                    </label>
+                </div>
+            </div>
+            <div id="status-bar">
+                <div class="status-item">
+                    <div class="status-indicator" id="wasm-status"></div>
+                    <span id="wasm-status-text">WASM: Not loaded</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-indicator" id="network-status"></div>
+                    <span id="network-status-text">Network: Not created</span>
+                </div>
+                <div class="status-item">
+                    <span id="demo-description"></span>
+                </div>
+            </div>
+        </div>
+
+        <div id="main-content">
+            <!-- Block Palette Sidebar -->
+            <div id="block-palette">
+                <h3>Block Palette</h3>
+
+                <div class="palette-category">
+                    <div class="palette-category-header">Transformers</div>
+                    <div class="palette-item" data-block-type="ScalarTransformer" draggable="true">
+                        <div class="palette-icon triangle" style="border-bottom-color: #8DB4E2;"></div>
+                        <div class="palette-label">Scalar</div>
+                    </div>
+                    <div class="palette-item" data-block-type="DiscreteTransformer" draggable="true">
+                        <div class="palette-icon triangle" style="border-bottom-color: #E2A98D;"></div>
+                        <div class="palette-label">Discrete</div>
+                    </div>
+                    <div class="palette-item" data-block-type="PersistenceTransformer" draggable="true">
+                        <div class="palette-icon triangle" style="border-bottom-color: #C48DE2;"></div>
+                        <div class="palette-label">Persistence</div>
+                    </div>
+                </div>
+
+                <div class="palette-category">
+                    <div class="palette-category-header">Learning</div>
+                    <div class="palette-item" data-block-type="PatternPooler" draggable="true">
+                        <div class="palette-icon horizontal-rect" style="background: #A8D8A8;"></div>
+                        <div class="palette-label">Pooler</div>
+                    </div>
+                    <div class="palette-item" data-block-type="PatternClassifier" draggable="true">
+                        <div class="palette-icon horizontal-rect" style="background: #E2A8E2;"></div>
+                        <div class="palette-label">Classifier</div>
+                    </div>
+                </div>
+
+                <div class="palette-category">
+                    <div class="palette-category-header">Temporal</div>
+                    <div class="palette-item" data-block-type="SequenceLearner" draggable="true">
+                        <div class="palette-icon square" style="background: #E2E28D;"></div>
+                        <div class="palette-label">Sequence</div>
+                    </div>
+                    <div class="palette-item" data-block-type="ContextLearner" draggable="true">
+                        <div class="palette-icon square" style="background: #8DE2E2;"></div>
+                        <div class="palette-label">Context</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="network-panel">
+                <!-- Editor Toolbar -->
+                <div id="editor-toolbar">
+                    <div class="editor-tool active" id="tool-select" title="Select Mode (V)">🖱️</div>
+                    <div class="editor-tool" id="tool-connect" title="Add Connection (C)">🔗</div>
+                    <div class="editor-tool" id="tool-delete" title="Delete Mode (D)">🗑️</div>
+                    <div class="toolbar-separator"></div>
+                    <div class="editor-tool" id="tool-undo" title="Undo (Ctrl+Z)" disabled>↩️</div>
+                    <div class="editor-tool" id="tool-redo" title="Redo (Ctrl+Shift+Z)" disabled>↪️</div>
+                    <div class="toolbar-separator"></div>
+                    <div class="editor-tool" id="tool-save" title="Save Network">💾</div>
+                    <div class="editor-tool" id="tool-load" title="Load Network">📂</div>
+                </div>
+
+                <svg id="network-svg"></svg>
+                <div id="empty-state">
+                    <h2>Real-Time WASM Visualization</h2>
+                    <p>Select a demo network and click "Initialize Network"</p>
+                    <p style="margin-top: 10px; font-size: 12px;">Or drag blocks from the palette to build your own network</p>
+                    <div class="demo-description">
+                        <strong>Sequence Learning:</strong> Learns temporal patterns [0→1→2→3]<br>
+                        <strong>Classification:</strong> 3-class supervised learning<br>
+                        <strong>Context Learning:</strong> Context-dependent pattern recognition<br>
+                        <strong>Feature Pooling:</strong> Unsupervised feature extraction
+                    </div>
+                </div>
+            </div>
+            <div id="bitfield-panel">
+                <div id="plots-section">
+                    <h3>Input/Output Values</h3>
+                    <div id="plots-container"></div>
+                </div>
+                <div id="bitfields-section">
+                    <h3>BitField States</h3>
+                    <div id="bitfields-container"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="metrics-panel">
+            <div class="metric">
+                <span class="metric-label">Step:</span>
+                <span class="metric-value" id="step-counter">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">FPS:</span>
+                <span class="metric-value" id="fps-counter">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Blocks:</span>
+                <span class="metric-value" id="block-counter">0</span>
+            </div>
+            <div class="metric" id="anomaly-metric" style="display: none;">
+                <span class="metric-label">Anomaly:</span>
+                <span class="metric-value" id="anomaly-value">0.00</span>
+            </div>
+            <div class="metric" id="class-metric" style="display: none;">
+                <span class="metric-label">Predicted Class:</span>
+                <span class="metric-value" id="class-value">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="loading-indicator">Initializing WASM module...</div>
+    <div class="block-tooltip"></div>
+
+    <!-- Parameter Editor Modal -->
+    <div id="param-editor-modal">
+        <div class="modal-content">
+            <div class="modal-header">Edit Block Parameters</div>
+            <div id="param-form-container"></div>
+            <div class="modal-actions">
+                <button id="param-cancel-btn">Cancel</button>
+                <button id="param-apply-btn" class="primary">Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import init, { WasmNetwork } from './pkg/gnomics.js';
+
+        // Global state
+        let wasmInitialized = false;
+        let wasmNetwork = null;
+        let executionInterval = null;
+        let isRunning = false;
+        let currentDemo = null;
+        let blockHandles = {};
+        let executionStep = 0;
+        let traceData = null;
+        let lastFrameTime = 0;
+        let fps = 0;
+        let selectedBlockId = null;
+
+        // Editor state
+        const editorState = {
+            mode: 'select',  // 'select', 'connect', 'delete'
+            selectedBlocks: new Set(),
+            selectedConnections: new Set(),
+            connectionDragStart: null,  // { blockId, port }
+            clipboard: null,
+            history: {
+                undoStack: [],
+                redoStack: [],
+                maxSize: 50
+            },
+            isDirty: false,
+            nextBlockId: 1000  // Start custom blocks at ID 1000
+        };
+
+        // ===== PHASE 4: STATE MANAGEMENT =====
+
+        // Operation History System
+        function recordOperation(operation) {
+            // Add to undo stack
+            editorState.history.undoStack.push(operation);
+
+            // Limit stack size
+            if (editorState.history.undoStack.length > editorState.history.maxSize) {
+                editorState.history.undoStack.shift();
+            }
+
+            // Clear redo stack (can't redo after new operation)
+            editorState.history.redoStack = [];
+
+            // Mark as dirty
+            editorState.isDirty = true;
+
+            // Update button states
+            updateHistoryButtons();
+
+            // Trigger auto-save
+            autoSaveNetwork();
+        }
+
+        function undo() {
+            if (editorState.history.undoStack.length === 0) return;
+
+            const operation = editorState.history.undoStack.pop();
+
+            try {
+                // Execute inverse operation
+                executeInverseOperation(operation);
+
+                // Add to redo stack
+                editorState.history.redoStack.push(operation);
+
+                // Update buttons
+                updateHistoryButtons();
+
+                console.log('Undo:', operation.type);
+            } catch (err) {
+                console.error('Undo failed:', err);
+                alert(`Undo failed: ${err.message}`);
+                // Put it back if failed
+                editorState.history.undoStack.push(operation);
+            }
+        }
+
+        function redo() {
+            if (editorState.history.redoStack.length === 0) return;
+
+            const operation = editorState.history.redoStack.pop();
+
+            try {
+                // Execute original operation
+                executeOperation(operation);
+
+                // Add back to undo stack
+                editorState.history.undoStack.push(operation);
+
+                // Update buttons
+                updateHistoryButtons();
+
+                console.log('Redo:', operation.type);
+            } catch (err) {
+                console.error('Redo failed:', err);
+                alert(`Redo failed: ${err.message}`);
+                // Put it back if failed
+                editorState.history.redoStack.push(operation);
+            }
+        }
+
+        function executeOperation(op) {
+            switch (op.type) {
+                case 'ADD_BLOCK':
+                    // Re-add the block with same handle
+                    recreateBlock(op.blockType, op.name, op.params);
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+
+                case 'REMOVE_BLOCK':
+                    wasmNetwork.remove_block(op.blockHandle);
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+
+                case 'ADD_CONNECTION':
+                    if (op.connType === 'context') {
+                        wasmNetwork.connect_to_context(op.source, op.target);
+                    } else {
+                        wasmNetwork.connect_to_input(op.source, op.target);
+                    }
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+
+                case 'REMOVE_CONNECTION':
+                    wasmNetwork.remove_connection(op.source, op.target, op.connType);
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+            }
+
+            // Update block counter
+            const numBlocks = wasmNetwork.num_blocks();
+            document.getElementById('block-counter').textContent = numBlocks;
+            updateStatus('network', 'active', `Network: ${numBlocks} blocks`);
+        }
+
+        function executeInverseOperation(op) {
+            switch (op.type) {
+                case 'ADD_BLOCK':
+                    // Inverse: remove the block
+                    wasmNetwork.remove_block(op.blockHandle);
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+
+                case 'REMOVE_BLOCK':
+                    // Inverse: re-create the block
+                    recreateBlock(op.blockType, op.name, op.params);
+                    // Restore connections
+                    if (op.connections) {
+                        op.connections.forEach(conn => {
+                            if (conn.type === 'context') {
+                                wasmNetwork.connect_to_context(conn.source, conn.target);
+                            } else {
+                                wasmNetwork.connect_to_input(conn.source, conn.target);
+                            }
+                        });
+                    }
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+
+                case 'ADD_CONNECTION':
+                    // Inverse: remove connection
+                    wasmNetwork.remove_connection(op.source, op.target, op.connType);
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+
+                case 'REMOVE_CONNECTION':
+                    // Inverse: add connection back
+                    if (op.connType === 'context') {
+                        wasmNetwork.connect_to_context(op.source, op.target);
+                    } else {
+                        wasmNetwork.connect_to_input(op.source, op.target);
+                    }
+                    wasmNetwork.rebuild();
+                    drawNetworkGraph();
+                    break;
+            }
+
+            // Update block counter
+            const numBlocks = wasmNetwork.num_blocks();
+            document.getElementById('block-counter').textContent = numBlocks;
+            updateStatus('network', 'active', `Network: ${numBlocks} blocks`);
+        }
+
+        function recreateBlock(blockType, name, params) {
+            // Helper to recreate a block with specific parameters
+            const seed = params.seed || 0;
+            let handle;
+
+            switch (blockType) {
+                case 'ScalarTransformer':
+                    handle = wasmNetwork.add_scalar_transformer(
+                        name, params.min, params.max, params.statelets,
+                        params.active, 2, seed
+                    );
+                    break;
+                case 'DiscreteTransformer':
+                    handle = wasmNetwork.add_discrete_transformer(
+                        name, params.categories, params.statelets, 2, seed
+                    );
+                    break;
+                case 'PersistenceTransformer':
+                    handle = wasmNetwork.add_persistence_transformer(
+                        name, params.min, params.max, params.statelets,
+                        params.active, 10, 2, seed
+                    );
+                    break;
+                case 'PatternPooler':
+                    handle = wasmNetwork.add_pattern_pooler(
+                        name, params.dendrites, params.active, params['perm-thr'],
+                        2, 1, 0.8, 0.5, 0.3, false, 2, seed
+                    );
+                    break;
+                case 'PatternClassifier':
+                    handle = wasmNetwork.add_pattern_classifier(
+                        name, 3, params.dendrites, params.active, params['perm-thr'],
+                        2, 1, 0.8, 0.5, 0.3, 2, seed
+                    );
+                    break;
+                case 'SequenceLearner':
+                    handle = wasmNetwork.add_sequence_learner(
+                        name, 512, 4, 8, 32, 20, 20, 2, 1, 2, false, seed
+                    );
+                    break;
+                case 'ContextLearner':
+                    handle = wasmNetwork.add_context_learner(
+                        name, 512, 4, 8, 32, 20, 20, 2, 1, 2, false, seed
+                    );
+                    break;
+            }
+
+            wasmNetwork.init_block(handle);
+            return handle;
+        }
+
+        function updateHistoryButtons() {
+            const canUndo = editorState.history.undoStack.length > 0;
+            const canRedo = editorState.history.redoStack.length > 0;
+
+            if (canUndo) {
+                toolUndo.removeAttribute('disabled');
+            } else {
+                toolUndo.setAttribute('disabled', '');
+            }
+
+            if (canRedo) {
+                toolRedo.removeAttribute('disabled');
+            } else {
+                toolRedo.setAttribute('disabled', '');
+            }
+        }
+
+        // Auto-save to localStorage
+        let autoSaveTimer = null;
+        function autoSaveNetwork() {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                try {
+                    const config = wasmNetwork.export_config();
+                    localStorage.setItem('gnomics_network_autosave', config);
+                    localStorage.setItem('gnomics_network_autosave_timestamp', Date.now().toString());
+                    console.log('Auto-saved to localStorage');
+                } catch (err) {
+                    console.error('Auto-save failed:', err);
+                }
+            }, 2000); // Save 2 seconds after last change
+        }
+
+        // Save network to file
+        function saveNetworkToFile() {
+            try {
+                const config = wasmNetwork.export_config();
+                const blob = new Blob([config], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `gnomics_network_${Date.now()}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+
+                editorState.isDirty = false;
+                console.log('Network saved to file');
+            } catch (err) {
+                console.error('Save failed:', err);
+                alert(`Failed to save network: ${err.message}`);
+            }
+        }
+
+        // Load network from file
+        function loadNetworkFromFile() {
+            if (editorState.isDirty) {
+                if (!confirm('You have unsaved changes. Load network anyway?')) {
+                    return;
+                }
+            }
+
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const config = event.target.result;
+                        wasmNetwork.import_config(config);
+
+                        // Clear history
+                        editorState.history.undoStack = [];
+                        editorState.history.redoStack = [];
+                        updateHistoryButtons();
+
+                        // Update UI
+                        drawNetworkGraph();
+                        const numBlocks = wasmNetwork.num_blocks();
+                        document.getElementById('block-counter').textContent = numBlocks;
+                        updateStatus('network', 'success', `Loaded network with ${numBlocks} blocks`);
+
+                        editorState.isDirty = false;
+                        console.log('Network loaded from file');
+                    } catch (err) {
+                        console.error('Load failed:', err);
+                        alert(`Failed to load network: ${err.message}`);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+
+        // Restore from auto-save on page load
+        function restoreAutoSave() {
+            const savedConfig = localStorage.getItem('gnomics_network_autosave');
+            const timestamp = localStorage.getItem('gnomics_network_autosave_timestamp');
+
+            if (savedConfig && timestamp) {
+                const age = Date.now() - parseInt(timestamp);
+                const ageMinutes = Math.floor(age / 60000);
+
+                if (confirm(`Found auto-saved network from ${ageMinutes} minutes ago. Restore it?`)) {
+                    try {
+                        wasmNetwork.import_config(savedConfig);
+                        drawNetworkGraph();
+                        const numBlocks = wasmNetwork.num_blocks();
+                        document.getElementById('block-counter').textContent = numBlocks;
+                        updateStatus('network', 'success', `Restored network with ${numBlocks} blocks`);
+                        console.log('Restored from auto-save');
+                    } catch (err) {
+                        console.error('Restore failed:', err);
+                        alert(`Failed to restore auto-save: ${err.message}`);
+                    }
+                }
+            }
+        }
+
+        // Warn before leaving with unsaved changes
+        window.addEventListener('beforeunload', (e) => {
+            if (editorState.isDirty) {
+                e.preventDefault();
+                e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return e.returnValue;
+            }
+        });
+
+        // Time series data for plotting
+        const timeSeriesData = {
+            blocks: {},  // blockId -> { values: [], timestamps: [] }
+            maxPoints: 200  // Keep last 200 points
+        };
+        const activePlots = {};
+
+        // Block type styles configuration (muted pastels)
+        const blockStyles = {
+            'ScalarTransformer': {
+                fill: '#8DB4E2',  // Muted blue
+                stroke: '#5B8AC4',
+                shape: 'triangle',
+                icon: 'S',
+                width: 40,
+                height: 40,
+                inputType: 'scalar',  // Small circle on top
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'DiscreteTransformer': {
+                fill: '#E2A98D',  // Muted orange
+                stroke: '#C47F5B',
+                shape: 'triangle',
+                icon: 'D',
+                width: 40,
+                height: 40,
+                inputType: 'discrete',  // Small circle on top
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'PersistenceTransformer': {
+                fill: '#C48DE2',  // Muted purple
+                stroke: '#9A5BC4',
+                shape: 'triangle',
+                icon: 'P',
+                width: 40,
+                height: 40,
+                inputType: 'scalar',  // Small circle on top
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'PatternPooler': {
+                fill: '#A8D8A8',  // Muted green
+                stroke: '#7AB67A',
+                shape: 'horizontal-rect',
+                icon: 'PP',
+                width: 80,
+                height: 40,
+                inputType: 'BlockInput',  // Horizontal rect on top
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'PatternClassifier': {
+                fill: '#E2A8E2',  // Muted magenta
+                stroke: '#C47AC4',
+                shape: 'horizontal-rect',
+                icon: 'PC',
+                width: 80,
+                height: 40,
+                inputType: 'BlockInput',  // Horizontal rect on top
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'SequenceLearner': {
+                fill: '#E2E28D',  // Muted yellow
+                stroke: '#C4C45B',
+                shape: 'square',
+                icon: 'SL',
+                width: 80,
+                height: 80,
+                inputType: 'BlockInput',  // Horizontal rect on top
+                hasContext: true,  // Vertical rect on side (auto-connected)
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'ContextLearner': {
+                fill: '#8DE2E2',  // Muted cyan
+                stroke: '#5BC4C4',
+                shape: 'square',
+                icon: 'CL',
+                width: 80,
+                height: 80,
+                inputType: 'BlockInput',  // Horizontal rect on top
+                hasContext: true,  // Vertical rect on side
+                hasOutput: true  // Horizontal rect on bottom
+            },
+            'default': {
+                fill: '#A8A8A8',  // Muted gray
+                stroke: '#8DB4E2',
+                shape: 'triangle',
+                icon: '?',
+                width: 40,
+                height: 40,
+                hasOutput: true
+            }
+        };
+
+        // DOM elements
+        const demoSelect = document.getElementById('demo-select');
+        const initBtn = document.getElementById('init-btn');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const resetLayoutBtn = document.getElementById('reset-layout-btn');
+        const speedSlider = document.getElementById('speed-slider');
+        const speedDisplay = document.getElementById('speed-display');
+        const learningToggle = document.getElementById('learning-toggle');
+        const emptyState = document.getElementById('empty-state');
+        const loadingIndicator = document.getElementById('loading-indicator');
+
+        // Editor UI elements
+        const toolSelect = document.getElementById('tool-select');
+        const toolConnect = document.getElementById('tool-connect');
+        const toolDelete = document.getElementById('tool-delete');
+        const toolUndo = document.getElementById('tool-undo');
+        const toolRedo = document.getElementById('tool-redo');
+        const toolSave = document.getElementById('tool-save');
+        const toolLoad = document.getElementById('tool-load');
+        const paramModal = document.getElementById('param-editor-modal');
+        const paramFormContainer = document.getElementById('param-form-container');
+        const paramCancelBtn = document.getElementById('param-cancel-btn');
+        const paramApplyBtn = document.getElementById('param-apply-btn');
+
+        // Initialize WASM on page load
+        window.addEventListener('load', async () => {
+            loadingIndicator.classList.add('visible');
+            try {
+                await init();
+                wasmInitialized = true;
+                updateStatus('wasm', 'active', 'WASM: Ready');
+                console.log('WASM initialized successfully');
+
+                // Try to restore from auto-save
+                wasmNetwork = new WasmNetwork();
+                restoreAutoSave();
+            } catch (err) {
+                console.error('Failed to initialize WASM:', err);
+                updateStatus('wasm', 'inactive', 'WASM: Failed to load');
+                alert('Failed to load WASM module. Make sure to build with ./build_wasm.sh first.');
+            }
+            loadingIndicator.classList.remove('visible');
+        });
+
+        // Update status indicator
+        function updateStatus(type, state, text) {
+            const indicator = document.getElementById(`${type}-status`);
+            const statusText = document.getElementById(`${type}-status-text`);
+
+            indicator.className = 'status-indicator';
+            if (state === 'active') indicator.classList.add('active');
+            if (state === 'learning') indicator.classList.add('learning');
+
+            statusText.textContent = text;
+        }
+
+        // Demo selection
+        demoSelect.addEventListener('change', (e) => {
+            currentDemo = e.target.value;
+            initBtn.disabled = !currentDemo || !wasmInitialized;
+
+            const descriptions = {
+                sequence: 'Learns sequence [0→1→2→3], detects anomalies',
+                classification: 'Classifies inputs into 3 categories',
+                context: 'Associates patterns with context',
+                pooling: 'Extracts stable sparse features'
+            };
+            document.getElementById('demo-description').textContent = descriptions[currentDemo] || '';
+        });
+
+        // Helper function to extract block type from name
+        function getBlockType(name) {
+            const types = [
+                'ScalarTransformer', 'DiscreteTransformer', 'PersistenceTransformer',
+                'PatternPooler', 'PatternClassifier', 'SequenceLearner', 'ContextLearner'
+            ];
+
+            for (const type of types) {
+                if (name.includes('Encoder')) {
+                    if (name.includes('Sequence')) return 'DiscreteTransformer';
+                    if (name.includes('Input')) return 'DiscreteTransformer';
+                    if (name.includes('Context')) return 'DiscreteTransformer';
+                    return 'ScalarTransformer';
+                }
+                if (name.includes('Learner')) {
+                    if (name.includes('Sequence')) return 'SequenceLearner';
+                    if (name.includes('Context')) return 'ContextLearner';
+                }
+                if (name.includes('Pooler')) return 'PatternPooler';
+                if (name.includes('Classifier')) return 'PatternClassifier';
+            }
+            return 'default';
+        }
+
+        // Generate tooltip content for a block
+        function getBlockTooltipContent(d) {
+            const type = d.type || 'Unknown';
+
+            return `
+                <div class="tooltip-header">${d.name}</div>
+                <div class="tooltip-type">${type}</div>
+                <div class="tooltip-config">
+                    Block ID: ${d.id}<br>
+                    Type: ${type}<br>
+                    Status: Active
+                </div>
+                <div class="tooltip-metrics">
+                    Click to highlight in BitField panel
+                </div>
+            `;
+        }
+
+        // Generate tooltip content for a connection
+        function getConnectionTooltipContent(d) {
+            const sourceNode = typeof d.source === 'object' ? d.source : { id: d.source, name: 'Unknown' };
+            const targetNode = typeof d.target === 'object' ? d.target : { id: d.target, name: 'Unknown' };
+
+            const connectionType = d.type === 'context' ? 'Context Connection' : 'Input Connection';
+            const color = d.type === 'context' ? '#ff9a4a' : '#4a9eff';
+
+            return `
+                <div class="tooltip-header" style="color: ${color}">${connectionType}</div>
+                <div class="tooltip-config">
+                    <strong>Source:</strong> ${sourceNode.name}<br>
+                    <strong>Target:</strong> ${targetNode.name}<br>
+                    <strong>Type:</strong> ${d.type === 'context' ? 'Context (dashed)' : 'Input (solid)'}<br>
+                    <strong>Data Flow:</strong> ${sourceNode.type || 'Block'} → ${targetNode.type || 'Block'}
+                </div>
+            `;
+        }
+
+        // Show tooltip
+        function showTooltip(event, d) {
+            const tooltip = document.querySelector('.block-tooltip');
+            tooltip.innerHTML = getBlockTooltipContent(d);
+            tooltip.classList.add('visible');
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY - 28) + 'px';
+        }
+
+        // Show connection tooltip
+        function showConnectionTooltip(event, d) {
+            const tooltip = document.querySelector('.block-tooltip');
+            tooltip.innerHTML = getConnectionTooltipContent(d);
+            tooltip.classList.add('visible');
+            tooltip.style.left = (event.pageX + 10) + 'px';
+            tooltip.style.top = (event.pageY - 28) + 'px';
+        }
+
+        // Hide tooltip
+        function hideTooltip() {
+            const tooltip = document.querySelector('.block-tooltip');
+            tooltip.classList.remove('visible');
+        }
+
+        // Highlight block in bitfield panel
+        function highlightBlock(blockId) {
+            // Unhighlight all blocks first
+            unhighlightAllBitfieldBlocks();
+
+            // Highlight the selected block
+            const bitfieldBlock = document.querySelector(`[data-block-id="${blockId}"]`);
+            if (bitfieldBlock) {
+                bitfieldBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                bitfieldBlock.classList.add('highlighted', 'pulse');
+
+                // Remove pulse animation after it completes, but keep the highlight
+                setTimeout(() => {
+                    bitfieldBlock.classList.remove('pulse');
+                }, 1000);
+            }
+        }
+
+        // Unhighlight all bitfield blocks
+        function unhighlightAllBitfieldBlocks() {
+            document.querySelectorAll('.bitfield-block').forEach(block => {
+                block.classList.remove('highlighted', 'pulse');
+            });
+        }
+
+        // Time series data management
+        function updateTimeSeriesData(blockId, value, timestamp) {
+            if (!timeSeriesData.blocks[blockId]) {
+                timeSeriesData.blocks[blockId] = {
+                    values: [],
+                    timestamps: []
+                };
+            }
+
+            const data = timeSeriesData.blocks[blockId];
+            data.values.push(value);
+            data.timestamps.push(timestamp);
+
+            // Keep only recent data
+            if (data.values.length > timeSeriesData.maxPoints) {
+                data.values.shift();
+                data.timestamps.shift();
+            }
+        }
+
+        // Create a D3 line chart
+        function createPlot(blockId, blockName, valueType, color) {
+            const container = d3.select('#plots-container')
+                .append('div')
+                .attr('class', 'plot-container')
+                .attr('data-plot-id', blockId)
+                .attr('draggable', true);
+
+            // Add title with close button
+            const titleBar = container.append('div')
+                .attr('class', 'plot-title')
+                .style('display', 'flex')
+                .style('justify-content', 'space-between')
+                .style('align-items', 'center')
+                .style('cursor', 'grab');
+
+            titleBar.append('span')
+                .text(`${blockName} - ${valueType}`);
+
+            // Close button
+            titleBar.append('span')
+                .attr('class', 'plot-close')
+                .html('×')
+                .style('cursor', 'pointer')
+                .style('font-size', '20px')
+                .style('font-weight', 'bold')
+                .style('color', '#888')
+                .on('mouseover', function() { d3.select(this).style('color', '#fff'); })
+                .on('mouseout', function() { d3.select(this).style('color', '#888'); })
+                .on('click', function(event) {
+                    event.stopPropagation();
+                    // Remove plot
+                    const plotId = container.attr('data-plot-id');
+                    delete activePlots[plotId];
+                    container.remove();
+                });
+
+            const svg = container.append('svg')
+                .attr('class', 'plot-svg');
+
+            const margin = { top: 10, right: 20, bottom: 30, left: 40 };
+            const containerWidth = document.getElementById('plots-container').clientWidth || 400;
+            const width = containerWidth - margin.left - margin.right;
+            const height = 150 - margin.top - margin.bottom;
+
+            const g = svg.append('g')
+                .attr('transform', `translate(${margin.left},${margin.top})`);
+
+            // Scales
+            const xScale = d3.scaleLinear().range([0, width]);
+            const yScale = d3.scaleLinear().range([height, 0]);
+
+            // Axes
+            const xAxis = d3.axisBottom(xScale).ticks(5);
+            const yAxis = d3.axisLeft(yScale).ticks(5);
+
+            const xAxisGroup = g.append('g')
+                .attr('class', 'plot-axis')
+                .attr('transform', `translate(0,${height})`)
+                .call(xAxis);
+
+            const yAxisGroup = g.append('g')
+                .attr('class', 'plot-axis')
+                .call(yAxis);
+
+            // Line generator
+            const line = d3.line()
+                .x((d, i) => xScale(i))
+                .y(d => yScale(d))
+                .curve(d3.curveMonotoneX);
+
+            // Path for line
+            const path = g.append('path')
+                .attr('class', 'plot-line')
+                .attr('stroke', color || '#4a9eff');
+
+            return {
+                svg, g, xScale, yScale, xAxis, yAxis, line, path,
+                width, height, xAxisGroup, yAxisGroup
+            };
+        }
+
+        // Update a plot with new data
+        function updatePlot(plotObj, data) {
+            const { xScale, yScale, xAxis, yAxis, line, path, xAxisGroup, yAxisGroup } = plotObj;
+
+            if (!data || data.length === 0) return;
+
+            // Update scales
+            xScale.domain([0, data.length - 1]);
+            const yMin = d3.min(data);
+            const yMax = d3.max(data);
+            const yPadding = (yMax - yMin) * 0.1 || 1;
+            yScale.domain([yMin - yPadding, yMax + yPadding]);
+
+            // Update axes
+            xAxisGroup.call(xAxis);
+            yAxisGroup.call(yAxis);
+
+            // Update line
+            path.datum(data)
+                .attr('d', line);
+        }
+
+        // Initialize plots based on demo type
+        function initializePlots(demoType) {
+            // Clear existing plots
+            d3.select('#plots-container').selectAll('*').remove();
+            Object.keys(activePlots).forEach(key => delete activePlots[key]);
+            Object.keys(timeSeriesData.blocks).forEach(key => delete timeSeriesData.blocks[key]);
+
+            // Create plots based on demo type
+            switch(demoType) {
+                case 'sequence':
+                    activePlots.input = createPlot(
+                        'input',
+                        'Input Value',
+                        'Discrete',
+                        '#ff9a4a'
+                    );
+                    activePlots.anomaly = createPlot(
+                        'anomaly',
+                        'Anomaly Score',
+                        'Scalar',
+                        '#ff4a4a'
+                    );
+                    break;
+
+                case 'classification':
+                    activePlots.input = createPlot(
+                        'input',
+                        'Input Value',
+                        'Scalar',
+                        '#4a9eff'
+                    );
+                    activePlots.class0 = createPlot(
+                        'class0',
+                        'Class 0 Probability',
+                        'Scalar',
+                        '#4aff4a'
+                    );
+                    activePlots.class1 = createPlot(
+                        'class1',
+                        'Class 1 Probability',
+                        'Scalar',
+                        '#ffff4a'
+                    );
+                    activePlots.class2 = createPlot(
+                        'class2',
+                        'Class 2 Probability',
+                        'Scalar',
+                        '#ff4aff'
+                    );
+                    break;
+
+                case 'context':
+                    activePlots.input = createPlot(
+                        'input',
+                        'Input Value',
+                        'Discrete',
+                        '#ff9a4a'
+                    );
+                    activePlots.context = createPlot(
+                        'context',
+                        'Context Value',
+                        'Discrete',
+                        '#4affff'
+                    );
+                    activePlots.anomaly = createPlot(
+                        'anomaly',
+                        'Anomaly Score',
+                        'Scalar',
+                        '#ff4a4a'
+                    );
+                    break;
+
+                case 'pooling':
+                    activePlots.input = createPlot(
+                        'input',
+                        'Input Value',
+                        'Scalar',
+                        '#4a9eff'
+                    );
+                    break;
+            }
+        }
+
+        // Update all active plots
+        function updateAllPlots() {
+            for (const [plotId, plotObj] of Object.entries(activePlots)) {
+                const data = timeSeriesData.blocks[plotId];
+                if (data && data.values.length > 0) {
+                    updatePlot(plotObj, data.values);
+                }
+            }
+        }
+
+        // Network initialization
+        initBtn.addEventListener('click', () => {
+            loadingIndicator.textContent = 'Creating network...';
+            loadingIndicator.classList.add('visible');
+
+            setTimeout(() => {
+                try {
+                    createNetwork(currentDemo);
+                    emptyState.style.display = 'none';
+                    startBtn.disabled = false;
+                    stopBtn.disabled = false;
+                    resetBtn.disabled = false;
+                    resetLayoutBtn.disabled = false;
+                    initBtn.disabled = true;
+                    loadingIndicator.classList.remove('visible');
+                } catch (err) {
+                    console.error('Failed to create network:', err);
+                    alert('Failed to create network: ' + err.message);
+                    loadingIndicator.classList.remove('visible');
+                }
+            }, 100);
+        });
+
+        // Create network based on demo type
+        function createNetwork(demoType) {
+            wasmNetwork = new WasmNetwork();
+            blockHandles = {};
+            executionStep = 0;
+            traceData = null;
+
+            switch (demoType) {
+                case 'sequence':
+                    createSequenceLearningNetwork();
+                    break;
+                case 'classification':
+                    createClassificationNetwork();
+                    break;
+                case 'context':
+                    createContextLearningNetwork();
+                    break;
+                case 'pooling':
+                    createPoolingNetwork();
+                    break;
+            }
+
+            wasmNetwork.build();
+
+            // Initialize learning blocks
+            if (blockHandles.learner) {
+                wasmNetwork.init_block(blockHandles.learner);
+            }
+            if (blockHandles.pooler) {
+                wasmNetwork.init_block(blockHandles.pooler);
+            }
+            if (blockHandles.classifier) {
+                wasmNetwork.init_block(blockHandles.classifier);
+            }
+
+            wasmNetwork.start_recording();
+
+            const numBlocks = wasmNetwork.num_blocks();
+            document.getElementById('block-counter').textContent = numBlocks;
+
+            updateStatus('network', 'active', `Network: ${numBlocks} blocks`);
+
+            // Initialize plots for this demo
+            initializePlots(currentDemo);
+
+            // Initial visualization
+            drawNetworkGraph();
+        }
+
+        // Demo network configurations
+        function createSequenceLearningNetwork() {
+            blockHandles.encoder = wasmNetwork.add_discrete_transformer(
+                "Discrete Encoder", 10, 512, 2, 42
+            );
+            blockHandles.learner = wasmNetwork.add_sequence_learner(
+                "Sequence Learner", 512, 4, 8, 32, 20, 20, 2, 1, 2, false, 42
+            );
+            wasmNetwork.connect_to_input(blockHandles.encoder, blockHandles.learner);
+
+            document.getElementById('anomaly-metric').style.display = 'flex';
+            document.getElementById('class-metric').style.display = 'none';
+        }
+
+        function createClassificationNetwork() {
+            blockHandles.encoder = wasmNetwork.add_scalar_transformer(
+                "Scalar Encoder", 0.0, 10.0, 2048, 256, 2, 42
+            );
+            blockHandles.classifier = wasmNetwork.add_pattern_classifier(
+                "Pattern Classifier", 3, 1024, 40, 20, 2, 1, 0.8, 0.5, 0.3, 2, 42
+            );
+            wasmNetwork.connect_to_input(blockHandles.encoder, blockHandles.classifier);
+
+            document.getElementById('anomaly-metric').style.display = 'none';
+            document.getElementById('class-metric').style.display = 'flex';
+        }
+
+        function createContextLearningNetwork() {
+            blockHandles.inputEncoder = wasmNetwork.add_discrete_transformer(
+                "Discrete Encoder", 10, 512, 2, 42
+            );
+            blockHandles.contextEncoder = wasmNetwork.add_discrete_transformer(
+                "Discrete Encoder", 5, 256, 2, 43
+            );
+            blockHandles.learner = wasmNetwork.add_context_learner(
+                "Context Learner", 512, 4, 8, 32, 20, 20, 2, 1, 2, false, 42
+            );
+            wasmNetwork.connect_to_input(blockHandles.inputEncoder, blockHandles.learner);
+            wasmNetwork.connect_to_context(blockHandles.contextEncoder, blockHandles.learner);
+
+            document.getElementById('anomaly-metric').style.display = 'flex';
+            document.getElementById('class-metric').style.display = 'none';
+        }
+
+        function createPoolingNetwork() {
+            blockHandles.encoder = wasmNetwork.add_scalar_transformer(
+                "Scalar Encoder", 0.0, 100.0, 2048, 256, 2, 42
+            );
+            blockHandles.pooler = wasmNetwork.add_pattern_pooler(
+                "Pattern Pooler", 1024, 40, 20, 2, 1, 0.8, 0.5, 0.3, false, 2, 42
+            );
+            wasmNetwork.connect_to_input(blockHandles.encoder, blockHandles.pooler);
+
+            document.getElementById('anomaly-metric').style.display = 'none';
+            document.getElementById('class-metric').style.display = 'none';
+        }
+
+        // Execution controls
+        startBtn.addEventListener('click', () => {
+            if (!isRunning) {
+                isRunning = true;
+                startBtn.disabled = true;
+                const speed = parseInt(speedSlider.value);
+                executionInterval = setInterval(executeStep, speed);
+                updateStatus('network', 'learning', 'Network: Running');
+                lastFrameTime = performance.now();
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            stopExecution();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            stopExecution();
+            executionStep = 0;
+            document.getElementById('step-counter').textContent = '0';
+            document.getElementById('bitfields-container').innerHTML = '';
+            document.getElementById('plots-container').innerHTML = '';
+            createNetwork(currentDemo);
+        });
+
+        function stopExecution() {
+            if (executionInterval) {
+                clearInterval(executionInterval);
+                executionInterval = null;
+            }
+            isRunning = false;
+            startBtn.disabled = false;
+            updateStatus('network', 'active', `Network: ${wasmNetwork.num_blocks()} blocks`);
+        }
+
+        speedSlider.addEventListener('input', (e) => {
+            const speed = e.target.value;
+            speedDisplay.textContent = speed + 'ms';
+
+            if (isRunning) {
+                clearInterval(executionInterval);
+                executionInterval = setInterval(executeStep, speed);
+            }
+        });
+
+        // Reset layout button
+        resetLayoutBtn.addEventListener('click', () => {
+            if (wasmNetwork) {
+                drawNetworkGraph();
+            }
+        });
+
+        // ===== EDITOR FUNCTIONALITY =====
+
+        // Editor mode switching
+        function setEditorMode(mode) {
+            editorState.mode = mode;
+            [toolSelect, toolConnect, toolDelete].forEach(tool => tool.classList.remove('active'));
+
+            if (mode === 'select') toolSelect.classList.add('active');
+            else if (mode === 'connect') toolConnect.classList.add('active');
+            else if (mode === 'delete') toolDelete.classList.add('active');
+        }
+
+        toolSelect.addEventListener('click', () => setEditorMode('select'));
+        toolConnect.addEventListener('click', () => setEditorMode('connect'));
+        toolDelete.addEventListener('click', () => setEditorMode('delete'));
+
+        // Block palette drag-and-drop
+        document.querySelectorAll('.palette-item').forEach(item => {
+            // Click handler - show parameter modal
+            item.addEventListener('click', (e) => {
+                const blockType = e.target.closest('.palette-item').dataset.blockType;
+                console.log('[PALETTE CLICK]', blockType);
+                // Default position in center of network panel
+                const svg = document.getElementById('network-svg');
+                const rect = svg.getBoundingClientRect();
+                const x = rect.width / 2;
+                const y = rect.height / 2;
+                showBlockParameterEditor(blockType, null, x, y);
+            });
+
+            // Drag handlers
+            item.addEventListener('dragstart', (e) => {
+                const blockType = e.target.closest('.palette-item').dataset.blockType;
+                e.dataTransfer.setData('blockType', blockType);
+                e.target.classList.add('dragging');
+            });
+
+            item.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+            });
+        });
+
+        // Network panel drop target
+        const networkPanel = document.getElementById('network-panel');
+        networkPanel.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        networkPanel.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const blockType = e.dataTransfer.getData('blockType');
+            if (blockType) {
+                // Get drop position relative to SVG
+                const svg = document.getElementById('network-svg');
+                const rect = svg.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+
+                // Show parameter editor for new block
+                showBlockParameterEditor(blockType, null, x, y);
+            }
+        });
+
+        // Parameter editor modal functions
+        function showBlockParameterEditor(blockType, blockId = null, x = 0, y = 0) {
+            console.log('[SHOW EDITOR]', blockType, 'isNew:', blockId === null);
+            const isNew = blockId === null;
+            paramModal.querySelector('.modal-header').textContent =
+                isNew ? `Add ${blockType}` : `Edit ${blockType}`;
+
+            // Generate form based on block type
+            paramFormContainer.innerHTML = generateParameterForm(blockType, blockId);
+
+            // Store context for apply button
+            paramApplyBtn.onclick = () => {
+                console.log('[APPLY CLICKED]', blockType);
+                const params = collectFormParameters();
+                console.log('[PARAMS COLLECTED]', params);
+                if (isNew) {
+                    addNewBlock(blockType, params, x, y);
+                } else {
+                    updateBlockParameters(blockId, params);
+                }
+                paramModal.classList.remove('visible');
+            };
+
+            paramModal.classList.add('visible');
+        }
+
+        function generateParameterForm(blockType, blockId) {
+            const defaults = getBlockDefaults(blockType);
+            let html = '';
+
+            html += `<div class="form-group">
+                <label>Block Name</label>
+                <input type="text" id="param-name" value="${blockId || defaults.name}" />
+            </div>`;
+
+            // Type-specific parameters
+            if (blockType === 'ScalarTransformer') {
+                html += `
+                    <div class="form-group">
+                        <label>Min Value</label>
+                        <input type="number" id="param-min" value="${defaults.min_val}" step="0.1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Max Value</label>
+                        <input type="number" id="param-max" value="${defaults.max_val}" step="0.1" />
+                    </div>
+                    <div class="form-group">
+                        <label>Statelets</label>
+                        <input type="number" id="param-statelets" value="${defaults.num_s}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Active Statelets</label>
+                        <input type="number" id="param-active" value="${defaults.num_as}" />
+                    </div>
+                `;
+            } else if (blockType === 'DiscreteTransformer') {
+                html += `
+                    <div class="form-group">
+                        <label>Number of Categories</label>
+                        <input type="number" id="param-categories" value="${defaults.num_v}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Statelets</label>
+                        <input type="number" id="param-statelets" value="${defaults.num_s}" />
+                    </div>
+                `;
+            } else if (blockType === 'PatternPooler') {
+                html += `
+                    <div class="form-group">
+                        <label>Dendrites</label>
+                        <input type="number" id="param-dendrites" value="${defaults.num_s}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Active Dendrites</label>
+                        <input type="number" id="param-active" value="${defaults.num_as}" />
+                    </div>
+                    <div class="form-group">
+                        <label>Permanence Threshold</label>
+                        <input type="number" id="param-perm-thr" value="${defaults.perm_thr}" />
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        function getBlockDefaults(blockType) {
+            const defaults = {
+                'ScalarTransformer': { name: 'scalar_encoder', min_val: 0, max_val: 100, num_s: 2048, num_as: 256 },
+                'DiscreteTransformer': { name: 'discrete_encoder', num_v: 10, num_s: 2048 },
+                'PersistenceTransformer': { name: 'persistence_encoder', min_val: 0, max_val: 100, num_s: 2048, num_as: 256 },
+                'PatternPooler': { name: 'pooler', num_s: 1024, num_as: 40, perm_thr: 20 },
+                'PatternClassifier': { name: 'classifier', num_l: 3, num_s: 1024, num_as: 20, perm_thr: 20 },
+                'SequenceLearner': { name: 'sequence_learner', num_c: 512, num_spc: 4, num_dps: 8, num_rpd: 32 },
+                'ContextLearner': { name: 'context_learner', num_c: 512, num_spc: 4, num_dps: 8, num_rpd: 32 }
+            };
+            return defaults[blockType] || {};
+        }
+
+        function collectFormParameters() {
+            const params = {
+                name: document.getElementById('param-name')?.value || 'block'
+            };
+
+            // Collect all parameter inputs
+            ['min', 'max', 'statelets', 'active', 'categories', 'dendrites', 'perm-thr'].forEach(field => {
+                const elem = document.getElementById(`param-${field}`);
+                if (elem) params[field] = parseFloat(elem.value) || parseInt(elem.value);
+            });
+
+            return params;
+        }
+
+        function addNewBlock(blockType, params, x, y) {
+            console.log('[ADD NEW BLOCK]', blockType, 'at', x, y, 'params:', params);
+            console.log('[WASM NETWORK EXISTS]', !!wasmNetwork);
+
+            if (!wasmNetwork) {
+                console.error('[ERROR] wasmNetwork is null');
+                alert('Network not initialized. Please load a demo first.');
+                return;
+            }
+
+            try {
+                let handle;
+                const name = params.name || blockType.toLowerCase();
+                const seed = 0;
+                console.log('[CALLING WASM]', blockType, 'name:', name);
+
+                // Call appropriate WASM method based on block type
+                switch (blockType) {
+                    case 'ScalarTransformer':
+                        handle = wasmNetwork.add_scalar_transformer(
+                            name,
+                            params.min || 0,
+                            params.max || 100,
+                            params.statelets || 2048,
+                            params.active || 256,
+                            2, // num_t (history depth)
+                            seed
+                        );
+                        break;
+
+                    case 'DiscreteTransformer':
+                        handle = wasmNetwork.add_discrete_transformer(
+                            name,
+                            params.categories || 10,
+                            params.statelets || 2048,
+                            2, // num_t
+                            seed
+                        );
+                        break;
+
+                    case 'PersistenceTransformer':
+                        handle = wasmNetwork.add_persistence_transformer(
+                            name,
+                            params.min || 0,
+                            params.max || 100,
+                            params.statelets || 2048,
+                            params.active || 256,
+                            10, // max_step
+                            2, // num_t
+                            seed
+                        );
+                        break;
+
+                    case 'PatternPooler':
+                        handle = wasmNetwork.add_pattern_pooler(
+                            name,
+                            params.dendrites || 1024,
+                            params.active || 40,
+                            params['perm-thr'] || 20,
+                            2, // perm_inc
+                            1, // perm_dec
+                            0.8, // pct_pool
+                            0.5, // pct_conn
+                            0.3, // pct_learn
+                            false, // always_update
+                            2, // num_t
+                            seed
+                        );
+                        break;
+
+                    case 'PatternClassifier':
+                        handle = wasmNetwork.add_pattern_classifier(
+                            name,
+                            3, // num_l (number of labels)
+                            params.dendrites || 1024,
+                            params.active || 20,
+                            params['perm-thr'] || 20,
+                            2, // perm_inc
+                            1, // perm_dec
+                            0.8, // pct_pool
+                            0.5, // pct_conn
+                            0.3, // pct_learn
+                            2, // num_t
+                            seed
+                        );
+                        break;
+
+                    case 'SequenceLearner':
+                        handle = wasmNetwork.add_sequence_learner(
+                            name,
+                            512, // num_c (columns)
+                            4, // num_spc (statelets per column)
+                            8, // num_dps (dendrites per statelet)
+                            32, // num_rpd (receptors per dendrite)
+                            20, // dendrite threshold
+                            20, // perm_thr
+                            2, // perm_inc
+                            1, // perm_dec
+                            2, // num_t
+                            false, // always_update
+                            seed
+                        );
+                        break;
+
+                    case 'ContextLearner':
+                        handle = wasmNetwork.add_context_learner(
+                            name,
+                            512, // num_c
+                            4, // num_spc
+                            8, // num_dps
+                            32, // num_rpd
+                            20, // dendrite threshold
+                            20, // perm_thr
+                            2, // perm_inc
+                            1, // perm_dec
+                            2, // num_t
+                            false, // always_update
+                            seed
+                        );
+                        break;
+
+                    default:
+                        alert(`Unknown block type: ${blockType}`);
+                        return;
+                }
+
+                console.log('[WASM CALL COMPLETE] handle:', handle);
+
+                // Rebuild network first
+                wasmNetwork.rebuild();
+                console.log('[REBUILD COMPLETE]');
+
+                // Try to initialize the block (may fail if it needs connections)
+                try {
+                    wasmNetwork.init_block(handle);
+                    console.log(`[INIT SUCCESS] Created and initialized block "${name}" with handle ${handle}`);
+                } catch (initError) {
+                    console.log(`[INIT DEFERRED] Created block "${name}" with handle ${handle} (initialization deferred until connected)`);
+                }
+
+                // Update block counter
+                const numBlocks = wasmNetwork.num_blocks();
+                console.log('[BLOCK COUNT]', numBlocks);
+                document.getElementById('block-counter').textContent = numBlocks;
+
+                // Redraw network graph to show the new block
+                console.log('[REDRAWING GRAPH]');
+                drawNetworkGraph();
+
+                // Record operation for undo/redo
+                recordOperation({
+                    type: 'ADD_BLOCK',
+                    blockHandle: handle,
+                    blockType: blockType,
+                    name: name,
+                    params: params
+                });
+
+            } catch (error) {
+                console.error('Error adding block:', error);
+                alert(`Error adding block: ${error.message || error}`);
+            }
+        }
+
+        function updateBlockParameters(blockId, params) {
+            console.log(`Updating block ${blockId} with params:`, params);
+            // TODO: Call WASM API to update parameters (would need to recreate block or add update methods)
+            alert(`Parameter update not yet implemented.\n\nTo change parameters, delete and recreate the block.`);
+        }
+
+        function deleteBlock(blockId) {
+            if (!wasmNetwork) {
+                alert('Network not initialized.');
+                return;
+            }
+
+            try {
+                // Get block info to map names to handles
+                const blocksInfoJson = wasmNetwork.get_blocks_info();
+                const blocksInfo = JSON.parse(blocksInfoJson);
+
+                // Find the handle for this block
+                const blockInfo = blocksInfo.find(b => b.name === blockId);
+                if (!blockInfo) {
+                    throw new Error(`Block "${blockId}" not found`);
+                }
+
+                // Remove the block via WASM API
+                wasmNetwork.remove_block(blockInfo.handle);
+
+                // Rebuild network and update visualization
+                wasmNetwork.rebuild();
+
+                console.log(`Deleted block "${blockId}"`);
+
+                // Remove from selected blocks
+                editorState.selectedBlocks.delete(blockId);
+
+                // Redraw network graph
+                const traceJson = wasmNetwork.get_trace_json();
+                if (traceJson) {
+                    const trace = JSON.parse(traceJson);
+                    drawNetworkGraph(trace);
+                }
+
+                editorState.isDirty = true;
+
+            } catch (error) {
+                console.error('Error deleting block:', error);
+                alert(`Error deleting block: ${error.message || error}`);
+            }
+        }
+
+        // Modal close handlers
+        paramCancelBtn.addEventListener('click', () => {
+            paramModal.classList.remove('visible');
+        });
+
+        paramModal.addEventListener('click', (e) => {
+            if (e.target === paramModal) {
+                paramModal.classList.remove('visible');
+            }
+        });
+
+        // Save/Load network configuration
+        toolSave.addEventListener('click', () => {
+            if (!wasmNetwork) {
+                alert('No network to save');
+                return;
+            }
+            saveNetworkToFile();
+        });
+
+        toolLoad.addEventListener('click', () => {
+            if (isRunning) {
+                alert('Stop simulation before loading a network');
+                return;
+            }
+            loadNetworkFromFile();
+        });
+
+        // Undo/Redo
+        toolUndo.addEventListener('click', () => {
+            undo();
+        });
+
+        toolRedo.addEventListener('click', () => {
+            redo();
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Mode switching
+            if (e.key === 'v' || e.key === 'V') setEditorMode('select');
+            else if (e.key === 'c' || e.key === 'C') setEditorMode('connect');
+            else if (e.key === 'd' || e.key === 'D') setEditorMode('delete');
+
+            // Undo/Redo
+            else if (e.ctrlKey && e.shiftKey && e.key === 'Z') {
+                e.preventDefault();
+                redo();
+            } else if (e.ctrlKey && e.key === 'z') {
+                e.preventDefault();
+                undo();
+            }
+
+            // Delete selected
+            else if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (editorState.selectedBlocks.size > 0) {
+                    e.preventDefault();
+                    const selectedArray = Array.from(editorState.selectedBlocks);
+                    if (confirm(`Delete ${selectedArray.length} selected block(s)?`)) {
+                        selectedArray.forEach(blockId => deleteBlock(blockId));
+                    }
+                }
+            }
+        });
+
+        // Connection creation tool (port-to-port dragging)
+        let connectionPreview = null;
+        let connectionDragData = null;
+
+        function startConnectionDrag(sourceBlockId, sourcePort, event) {
+            if (editorState.mode !== 'connect') return;
+
+            connectionDragData = {
+                sourceBlockId,
+                sourcePort,  // 'output'
+                startX: event.clientX,
+                startY: event.clientY
+            };
+
+            // Create preview line
+            const svg = d3.select('#network-svg');
+            connectionPreview = svg.append('path')
+                .attr('class', 'connection-preview')
+                .attr('d', `M${event.clientX},${event.clientY}L${event.clientX},${event.clientY}`);
+
+            // Highlight valid target ports
+            highlightValidConnectionTargets(sourceBlockId);
+
+            event.stopPropagation();
+        }
+
+        function updateConnectionDrag(event) {
+            if (!connectionDragData || !connectionPreview) return;
+
+            const svg = document.getElementById('network-svg');
+            const rect = svg.getBoundingClientRect();
+            const currentX = event.clientX - rect.left;
+            const currentY = event.clientY - rect.top;
+            const startX = connectionDragData.startX - rect.left;
+            const startY = connectionDragData.startY - rect.top;
+
+            // Update preview line
+            connectionPreview.attr('d', `M${startX},${startY}L${currentX},${currentY}`);
+        }
+
+        function endConnectionDrag(event, targetBlockId = null, targetPort = null) {
+            if (!connectionDragData) return;
+
+            // Remove preview
+            if (connectionPreview) {
+                connectionPreview.remove();
+                connectionPreview = null;
+            }
+
+            // Clear port highlighting
+            d3.selectAll('.port').classed('valid-target', false).classed('invalid-target', false);
+
+            // Create connection if we have a valid target
+            if (targetBlockId && targetPort) {
+                const sourceId = connectionDragData.sourceBlockId;
+                const connType = targetPort === 'context' ? 'context' : 'input';
+
+                console.log(`Create connection: ${sourceId} → ${targetBlockId} (${connType})`);
+
+                if (!wasmNetwork) {
+                    alert('Network not initialized.');
+                    connectionDragData = null;
+                    return;
+                }
+
+                try {
+                    // Source and target IDs are already the block handles (indices)
+                    const sourceHandle = sourceId;
+                    const targetHandle = targetBlockId;
+
+                    // Create connection using WASM API
+                    if (connType === 'context') {
+                        wasmNetwork.connect_to_context(sourceHandle, targetHandle);
+                    } else {
+                        wasmNetwork.connect_to_input(sourceHandle, targetHandle);
+                    }
+
+                    // Rebuild network and update visualization
+                    wasmNetwork.rebuild();
+
+                    console.log(`Connected ${sourceId} → ${targetBlockId} (${connType})`);
+
+                    // Redraw network graph to show the new connection
+                    drawNetworkGraph();
+
+                    // Record operation for undo/redo
+                    recordOperation({
+                        type: 'ADD_CONNECTION',
+                        source: sourceHandle,
+                        target: targetHandle,
+                        connType: connType
+                    });
+
+                } catch (error) {
+                    console.error('Error creating connection:', error);
+                    alert(`Error creating connection: ${error.message || error}`);
+                }
+            }
+
+            connectionDragData = null;
+        }
+
+        function highlightValidConnectionTargets(sourceBlockId) {
+            // All ports except the source block's ports are valid targets
+            d3.selectAll('.port').each(function(d) {
+                const port = d3.select(this);
+                const portType = port.attr('data-port-type');
+                const blockId = port.attr('data-block-id');
+
+                if (blockId !== String(sourceBlockId)) {
+                    port.classed('valid-target', true);
+                } else {
+                    port.classed('invalid-target', true);
+                }
+            });
+        }
+
+        // Add global mouse handlers for connection dragging
+        const networkSvg = document.getElementById('network-svg');
+        networkSvg.addEventListener('mousemove', updateConnectionDrag);
+        networkSvg.addEventListener('mouseup', (e) => endConnectionDrag(e));
+
+        // Port interaction will be set up in drawNetworkGraph when ports are created
+        // We'll add a global handler to detect port mousedown events
+        document.addEventListener('mousedown', (e) => {
+            const port = e.target.closest('.port-output');
+            if (port && editorState.mode === 'connect') {
+                const blockId = port.parentElement.parentElement.__data__.id;
+                startConnectionDrag(blockId, 'output', e);
+            }
+        });
+
+        document.addEventListener('mouseup', (e) => {
+            if (!connectionDragData) return;
+
+            const targetPort = e.target.closest('.port-input, .port-context');
+            if (targetPort) {
+                const targetBlockId = targetPort.parentElement.parentElement.__data__.id;
+                const portType = targetPort.classList.contains('port-context') ? 'context' : 'input';
+                endConnectionDrag(e, targetBlockId, portType);
+            } else {
+                endConnectionDrag(e);
+            }
+        });
+
+        // ===== END EDITOR FUNCTIONALITY =====
+
+        // Execute one step
+        function executeStep() {
+            try {
+                const learn = learningToggle.checked;
+
+                // Set inputs based on demo type
+                switch (currentDemo) {
+                    case 'sequence':
+                        executeSequenceStep(learn);
+                        break;
+                    case 'classification':
+                        executeClassificationStep(learn);
+                        break;
+                    case 'context':
+                        executeContextStep(learn);
+                        break;
+                    case 'pooling':
+                        executePoolingStep(learn);
+                        break;
+                }
+
+                // Execute network
+                wasmNetwork.execute(learn);
+
+                // Update metrics
+                executionStep++;
+                document.getElementById('step-counter').textContent = executionStep;
+
+                // Calculate FPS
+                const now = performance.now();
+                const delta = now - lastFrameTime;
+                fps = Math.round(1000 / delta);
+                document.getElementById('fps-counter').textContent = fps;
+                lastFrameTime = now;
+
+                // Get trace and update visualization
+                const traceJson = wasmNetwork.get_trace_json();
+                if (traceJson) {
+                    const trace = JSON.parse(traceJson);
+                    if (!traceData) {
+                        traceData = trace;
+                    } else {
+                        traceData.steps.push(...trace.steps);
+                        traceData.total_steps = traceData.steps.length;
+                    }
+
+                    // Update visualization with latest step
+                    if (traceData.steps.length > 0) {
+                        const latestStep = traceData.steps[traceData.steps.length - 1];
+                        updateVisualization(latestStep);
+
+                        // Capture data for dynamically added block plots
+                        for (const plotKey of Object.keys(activePlots)) {
+                            if (plotKey.startsWith('block_')) {
+                                // Extract block ID from plotKey (e.g., "block_0" -> "0")
+                                const blockIdStr = plotKey.replace('block_', '');
+
+                                // Try accessing with string key first, then numeric
+                                let blockState = latestStep.block_states[blockIdStr];
+                                if (!blockState) {
+                                    // Try numeric key
+                                    const blockIdNum = parseInt(blockIdStr);
+                                    blockState = latestStep.block_states[blockIdNum];
+                                }
+
+                                if (blockState && blockState.num_active !== undefined) {
+                                    // Use number of active bits as the output value
+                                    updateTimeSeriesData(plotKey, blockState.num_active, executionStep);
+
+                                    // Debug: verify data is being captured
+                                    if (executionStep % 50 === 0) {
+                                        console.log(`Captured data for ${plotKey}: ${blockState.num_active} active bits`);
+                                    }
+                                } else {
+                                    // Debug: log if block state not found
+                                    if (executionStep % 50 === 0) {
+                                        console.log(`No block state found for ${plotKey} (tried ${blockIdStr})`);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Update plots
+                updateAllPlots();
+
+            } catch (err) {
+                console.error('Execution error:', err);
+                stopExecution();
+                alert('Execution error: ' + err.message);
+            }
+        }
+
+        // Demo-specific execution logic
+        function executeSequenceStep(learn) {
+            const sequence = [0, 1, 2, 3];
+            let value;
+
+            if (learn && executionStep < 40) {
+                // Training phase
+                value = sequence[executionStep % sequence.length];
+            } else if (executionStep === 40) {
+                // Introduce anomaly
+                value = 7;
+            } else {
+                // Back to normal sequence
+                value = sequence[executionStep % sequence.length];
+            }
+
+            wasmNetwork.set_discrete_value(blockHandles.encoder, value);
+
+            // Capture input value for plotting
+            updateTimeSeriesData('input', value, executionStep);
+
+            // Get anomaly score
+            const anomaly = wasmNetwork.get_anomaly(blockHandles.learner);
+            document.getElementById('anomaly-value').textContent = anomaly.toFixed(3);
+
+            // Capture anomaly for plotting
+            updateTimeSeriesData('anomaly', anomaly, executionStep);
+        }
+
+        function executeClassificationStep(learn) {
+            // Generate data: class 0: 0-3, class 1: 4-7, class 2: 8-10
+            let value, label;
+
+            if (learn) {
+                const classId = Math.floor(Math.random() * 3);
+                if (classId === 0) {
+                    value = Math.random() * 3;
+                    label = 0;
+                } else if (classId === 1) {
+                    value = 4 + Math.random() * 3;
+                    label = 1;
+                } else {
+                    value = 8 + Math.random() * 2;
+                    label = 2;
+                }
+                wasmNetwork.set_classifier_label(blockHandles.classifier, label);
+            } else {
+                // Test mode - cycle through values
+                value = (executionStep % 30) / 3.0;
+            }
+
+            wasmNetwork.set_scalar_value(blockHandles.encoder, value);
+
+            // Capture input value for plotting
+            updateTimeSeriesData('input', value, executionStep);
+
+            // Get probabilities
+            const probs = wasmNetwork.get_probabilities(blockHandles.classifier);
+
+            // Capture probabilities for plotting
+            updateTimeSeriesData('class0', probs[0] || 0, executionStep);
+            updateTimeSeriesData('class1', probs[1] || 0, executionStep);
+            updateTimeSeriesData('class2', probs[2] || 0, executionStep);
+
+            if (!learn) {
+                const predicted = probs.indexOf(Math.max(...probs));
+                document.getElementById('class-value').textContent = `${predicted} (${probs[predicted]})`;
+            }
+        }
+
+        function executeContextStep(learn) {
+            const inputVal = executionStep % 10;
+            const contextVal = Math.floor(executionStep / 10) % 5;
+
+            wasmNetwork.set_discrete_value(blockHandles.inputEncoder, inputVal);
+            wasmNetwork.set_discrete_value(blockHandles.contextEncoder, contextVal);
+
+            // Capture input and context values for plotting
+            updateTimeSeriesData('input', inputVal, executionStep);
+            updateTimeSeriesData('context', contextVal, executionStep);
+
+            const anomaly = wasmNetwork.get_anomaly(blockHandles.learner);
+            document.getElementById('anomaly-value').textContent = anomaly.toFixed(3);
+
+            // Capture anomaly for plotting
+            updateTimeSeriesData('anomaly', anomaly, executionStep);
+        }
+
+        function executePoolingStep(learn) {
+            const value = Math.sin(executionStep * 0.1) * 50 + 50;
+            wasmNetwork.set_scalar_value(blockHandles.encoder, value);
+
+            // Capture input value for plotting
+            updateTimeSeriesData('input', value, executionStep);
+        }
+
+        // Hierarchical layout computation
+        function computeHierarchicalLevels(nodes, links) {
+            const levels = {};
+            const visited = new Set();
+
+            // Find root nodes (no incoming edges)
+            const incomingCount = {};
+            nodes.forEach(n => incomingCount[n.id] = 0);
+            links.forEach(l => {
+                const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                incomingCount[targetId]++;
+            });
+
+            const roots = nodes.filter(n => incomingCount[n.id] === 0);
+
+            // BFS to assign levels
+            const queue = roots.map(n => ({ node: n, level: 0 }));
+
+            while (queue.length > 0) {
+                const { node, level } = queue.shift();
+
+                if (visited.has(node.id)) continue;
+                visited.add(node.id);
+                levels[node.id] = level;
+
+                // Add children
+                const children = links
+                    .filter(l => {
+                        const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                        return sourceId === node.id;
+                    })
+                    .map(l => {
+                        const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                        return nodes.find(n => n.id === targetId);
+                    })
+                    .filter(n => n !== undefined);
+
+                children.forEach(child => {
+                    if (!visited.has(child.id)) {
+                        queue.push({ node: child, level: level + 1 });
+                    }
+                });
+            }
+
+            return levels;
+        }
+
+        function applyHierarchicalLayout(nodes, links, width, height) {
+            const levels = computeHierarchicalLevels(nodes, links);
+            const maxLevel = Math.max(...Object.values(levels));
+            const levelHeight = height / (maxLevel + 2);
+
+            // Group nodes by level
+            const nodesByLevel = {};
+            nodes.forEach(node => {
+                const level = levels[node.id] || 0;
+                if (!nodesByLevel[level]) nodesByLevel[level] = [];
+                nodesByLevel[level].push(node);
+            });
+
+            // Position nodes initially (will be refined below)
+            nodes.forEach(node => {
+                const level = levels[node.id] || 0;
+                const nodesInLevel = nodesByLevel[level];
+                const indexInLevel = nodesInLevel.indexOf(node);
+                node.fx = width / (nodesInLevel.length + 1) * (indexInLevel + 1);
+                node.fy = levelHeight * (level + 1);
+            });
+
+            // Special handling for context connections:
+            // Source blocks should be positioned to the left of target blocks
+            links.forEach(link => {
+                if (link.type === 'context') {
+                    const sourceId = typeof link.source === 'object' ? link.source.id : link.source;
+                    const targetId = typeof link.target === 'object' ? link.target.id : link.target;
+                    const sourceNode = nodes.find(n => n.id === sourceId);
+                    const targetNode = nodes.find(n => n.id === targetId);
+
+                    if (sourceNode && targetNode) {
+                        // If they're at the same level, position source to the left
+                        if (levels[sourceId] === levels[targetId]) {
+                            const sourceLevel = nodesByLevel[levels[sourceId]];
+                            const targetIdx = sourceLevel.indexOf(targetNode);
+                            const sourceIdx = sourceLevel.indexOf(sourceNode);
+
+                            // Swap if source is to the right of target
+                            if (sourceIdx > targetIdx) {
+                                sourceLevel[sourceIdx] = targetNode;
+                                sourceLevel[targetIdx] = sourceNode;
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Sort nodes within each level to minimize crossings
+            // Use barycenter method: sort by average position of connected nodes in previous level
+            for (let level = 0; level <= maxLevel; level++) {
+                if (nodesByLevel[level]) {
+                    nodesByLevel[level].sort((a, b) => {
+                        // Check if nodes are context sources (have outgoing context connections)
+                        const aIsContextSource = links.some(l => {
+                            const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                            return sourceId === a.id && l.type === 'context';
+                        });
+                        const bIsContextSource = links.some(l => {
+                            const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                            return sourceId === b.id && l.type === 'context';
+                        });
+
+                        // Context sources should be positioned on the LEFT (lower x)
+                        if (aIsContextSource && !bIsContextSource) {
+                            return -1; // a comes first (left)
+                        } else if (!aIsContextSource && bIsContextSource) {
+                            return 1; // b comes first (left)
+                        }
+
+                        // Calculate barycenter (average x position of parents) for non-context sources
+                        const aParents = links.filter(l => {
+                            const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                            return targetId === a.id && l.type !== 'context';
+                        });
+                        const bParents = links.filter(l => {
+                            const targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                            return targetId === b.id && l.type !== 'context';
+                        });
+
+                        const aBarycenter = aParents.length > 0
+                            ? aParents.reduce((sum, l) => {
+                                const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                                const sourceNode = nodes.find(n => n.id === sourceId);
+                                return sum + (sourceNode ? (sourceNode.fx || 0) : 0);
+                            }, 0) / aParents.length
+                            : 0;
+
+                        const bBarycenter = bParents.length > 0
+                            ? bParents.reduce((sum, l) => {
+                                const sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                                const sourceNode = nodes.find(n => n.id === sourceId);
+                                return sum + (sourceNode ? (sourceNode.fx || 0) : 0);
+                            }, 0) / bParents.length
+                            : 0;
+
+                        return aBarycenter - bBarycenter;
+                    });
+                }
+            }
+
+            // Final positioning with updated order
+            nodes.forEach(node => {
+                const level = levels[node.id] || 0;
+                const nodesInLevel = nodesByLevel[level];
+                const indexInLevel = nodesInLevel.indexOf(node);
+
+                node.fx = width / (nodesInLevel.length + 1) * (indexInLevel + 1);
+                node.fy = levelHeight * (level + 1);
+            });
+        }
+
+        // Visualization functions (adapted from viewer.html)
+        function drawNetworkGraph() {
+            const svg = d3.select('#network-svg');
+            svg.selectAll('*').remove();
+
+            const width = document.getElementById('network-panel').clientWidth;
+            const height = document.getElementById('network-panel').clientHeight;
+
+            // Add defs for markers and filters
+            const defs = svg.append('defs');
+
+            // Arrowhead marker for input connections (muted blue)
+            defs.append('marker')
+                .attr('id', 'arrowhead')
+                .attr('viewBox', '0 -5 10 10')
+                .attr('refX', 10)  // Arrow tip at end of line
+                .attr('refY', 0)
+                .attr('markerWidth', 8)
+                .attr('markerHeight', 8)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M0,-5L10,0L0,5')
+                .attr('fill', '#8DB4E2');
+
+            // Arrowhead marker for context connections (muted orange)
+            defs.append('marker')
+                .attr('id', 'arrowhead-context')
+                .attr('viewBox', '0 -5 10 10')
+                .attr('refX', 10)  // Arrow tip at end of line
+                .attr('refY', 0)
+                .attr('markerWidth', 8)
+                .attr('markerHeight', 8)
+                .attr('orient', 'auto')
+                .append('path')
+                .attr('d', 'M0,-5L10,0L0,5')
+                .attr('fill', '#E2A98D');
+
+            // Glow filter for selected nodes
+            const glow = defs.append('filter')
+                .attr('id', 'glow');
+            glow.append('feGaussianBlur')
+                .attr('stdDeviation', '4')
+                .attr('result', 'coloredBlur');
+            const feMerge = glow.append('feMerge');
+            feMerge.append('feMergeNode').attr('in', 'coloredBlur');
+            feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+            const g = svg.append('g');
+
+            // Get network structure
+            const numBlocks = wasmNetwork.num_blocks();
+            const nodes = [];
+            for (let i = 0; i < numBlocks; i++) {
+                const name = wasmNetwork.get_block_name(i);
+                const type = getBlockType(name);
+                nodes.push({ id: i, name: name, type: type });
+            }
+
+            // Create links based on demo type
+            const links = [];
+            if (currentDemo === 'sequence' || currentDemo === 'classification' || currentDemo === 'pooling') {
+                links.push({ source: 0, target: 1, type: 'input' });
+            } else if (currentDemo === 'context') {
+                links.push({ source: 0, target: 2, type: 'input' });
+                links.push({ source: 1, target: 2, type: 'context' });
+            }
+
+            // Apply hierarchical layout
+            applyHierarchicalLayout(nodes, links, width, height);
+
+            // Create force simulation with minimal forces to keep positions
+            const simulation = d3.forceSimulation(nodes)
+                .force('link', d3.forceLink(links).distance(150))
+                .force('charge', d3.forceManyBody().strength(-100))
+                .force('center', d3.forceCenter(width / 2, height / 2))
+                .force('collision', d3.forceCollide().radius(50))
+                .alpha(0.1)
+                .alphaDecay(0.05);
+
+            // Draw links (muted colors)
+            const link = g.append('g')
+                .selectAll('path')
+                .data(links)
+                .join('path')
+                .attr('class', d => `link ${d.type}`)
+                .attr('stroke', d => d.type === 'context' ? '#E2A98D' : '#8DB4E2')
+                .attr('stroke-width', 3)
+                .attr('fill', 'none')
+                .attr('marker-end', d => d.type === 'context' ? 'url(#arrowhead-context)' : 'url(#arrowhead)')
+                .style('cursor', 'pointer')
+                .on('mouseover', function(event, d) {
+                    // Highlight connection
+                    d3.select(this)
+                        .attr('stroke-width', 5)
+                        .attr('stroke', d.type === 'context' ? '#C47F5B' : '#5B8AC4');
+                    showConnectionTooltip(event, d);
+                })
+                .on('mouseout', function(event, d) {
+                    // Reset connection style
+                    d3.select(this)
+                        .attr('stroke-width', 3)
+                        .attr('stroke', d.type === 'context' ? '#E2A98D' : '#8DB4E2');
+                    hideTooltip();
+                });
+
+            // Draw nodes
+            const node = g.append('g')
+                .selectAll('g')
+                .data(nodes)
+                .join('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragstarted)
+                    .on('drag', dragged)
+                    .on('end', dragended))
+                .on('mouseover', showTooltip)
+                .on('mouseout', hideTooltip)
+                .on('click', function(event, d) {
+                    event.stopPropagation();
+
+                    // Handle delete mode
+                    if (editorState.mode === 'delete') {
+                        const blockName = wasmNetwork.get_block_name(d.id);
+                        const blockType = wasmNetwork.get_block_type(d.id);
+
+                        if (confirm(`Delete block "${blockName}" (${blockType})?`)) {
+                            try {
+                                // Capture block info BEFORE deletion for undo
+                                // Note: We can't easily capture connections, so undo won't restore them
+                                // This is a known limitation - full implementation would require
+                                // WASM API to query block connections
+                                const blockInfo = {
+                                    handle: d.id,
+                                    type: blockType,
+                                    name: blockName,
+                                    params: {}  // TODO: Capture actual parameters
+                                };
+
+                                // Remove the block
+                                wasmNetwork.remove_block(d.id);
+
+                                // Rebuild network
+                                wasmNetwork.rebuild();
+
+                                // Update block counter
+                                const numBlocks = wasmNetwork.num_blocks();
+                                document.getElementById('block-counter').textContent = numBlocks;
+
+                                // Update status
+                                updateStatus('network', 'active', `Network: ${numBlocks} blocks`);
+
+                                // Refresh visualization
+                                drawNetworkGraph();
+
+                                // Record operation for undo/redo
+                                recordOperation({
+                                    type: 'REMOVE_BLOCK',
+                                    blockHandle: blockInfo.handle,
+                                    blockType: blockInfo.type,
+                                    name: blockInfo.name,
+                                    params: blockInfo.params,
+                                    connections: null  // TODO: Would need WASM API to query connections
+                                });
+
+                                console.log(`Deleted block ${d.id}: ${blockName}`);
+                            } catch (err) {
+                                console.error('Failed to delete block:', err);
+                                alert(`Failed to delete block: ${err.message}`);
+                            }
+                        }
+                        return;
+                    }
+
+                    // Toggle selection
+                    if (selectedBlockId === d.id) {
+                        selectedBlockId = null;
+                        unhighlightAll();
+                    } else {
+                        selectedBlockId = d.id;
+                        highlightSelectedNode(d.id);
+                        highlightBlock(d.id);
+                    }
+                })
+                .on('contextmenu', function(event, d) {
+                    // Right-click: show context menu for adding plots
+                    showPlotMenu(event, d.id, d.name, d.type);
+                });
+
+            // Draw different shapes based on block type
+            node.each(function(d) {
+                const style = blockStyles[d.type] || blockStyles.default;
+                const nodeGroup = d3.select(this);
+                const w = style.width || 60;
+                const h = style.height || 60;
+
+                // Draw main shape
+                if (style.shape === 'triangle') {
+                    // Upward pointing triangle
+                    const halfW = w / 2;
+                    nodeGroup.append('polygon')
+                        .attr('points', `0,${-h/2} ${halfW},${h/2} ${-halfW},${h/2}`)
+                        .attr('fill', style.fill)
+                        .attr('stroke', style.stroke)
+                        .attr('stroke-width', 2)
+                        .attr('class', 'block-shape');
+                } else if (style.shape === 'horizontal-rect') {
+                    // Horizontal rectangle
+                    nodeGroup.append('rect')
+                        .attr('x', -w/2)
+                        .attr('y', -h/2)
+                        .attr('width', w)
+                        .attr('height', h)
+                        .attr('rx', 6)
+                        .attr('fill', style.fill)
+                        .attr('stroke', style.stroke)
+                        .attr('stroke-width', 2)
+                        .attr('class', 'block-shape');
+                } else if (style.shape === 'square') {
+                    // Square
+                    const size = w;  // Use width as the size
+                    nodeGroup.append('rect')
+                        .attr('x', -size/2)
+                        .attr('y', -size/2)
+                        .attr('width', size)
+                        .attr('height', size)
+                        .attr('rx', 8)
+                        .attr('fill', style.fill)
+                        .attr('stroke', style.stroke)
+                        .attr('stroke-width', 2)
+                        .attr('class', 'block-shape');
+                }
+
+                // Add port annotations
+                const portGroup = nodeGroup.append('g').attr('class', 'ports');
+
+                // Input port (top)
+                if (style.inputType === 'scalar' || style.inputType === 'discrete') {
+                    // Small circle on top
+                    portGroup.append('circle')
+                        .attr('cx', 0)
+                        .attr('cy', -h/2 - 5)
+                        .attr('r', 4)
+                        .attr('fill', '#888')
+                        .attr('stroke', '#fff')
+                        .attr('stroke-width', 1)
+                        .attr('class', 'port-input');
+                    // Store port position for connection
+                    d.inputPort = { x: 0, y: -h/2 - 5 };
+                } else if (style.inputType === 'BlockInput') {
+                    // Thin horizontal rectangle on top
+                    const portW = w * 0.6;
+                    portGroup.append('rect')
+                        .attr('x', -portW/2)
+                        .attr('y', -h/2 - 8)
+                        .attr('width', portW)
+                        .attr('height', 4)
+                        .attr('fill', '#4a9eff')
+                        .attr('stroke', '#3a7ecf')
+                        .attr('stroke-width', 1)
+                        .attr('class', 'port-input');
+                    d.inputPort = { x: 0, y: -h/2 - 6 };
+                }
+
+                // Context port (side) - vertical rectangle
+                if (style.hasContext) {
+                    const portH = h * 0.4;
+                    portGroup.append('rect')
+                        .attr('x', -w/2 - 8)
+                        .attr('y', -portH/2)
+                        .attr('width', 4)
+                        .attr('height', portH)
+                        .attr('fill', '#ff9a4a')
+                        .attr('stroke', '#cf7a2a')
+                        .attr('stroke-width', 1)
+                        .attr('class', 'port-context');
+                    d.contextPort = { x: -w/2 - 6, y: 0 };
+                }
+
+                // Output port (bottom) - horizontal rectangle
+                if (style.hasOutput) {
+                    const portW = w * 0.6;
+                    portGroup.append('rect')
+                        .attr('x', -portW/2)
+                        .attr('y', h/2 + 4)
+                        .attr('width', portW)
+                        .attr('height', 4)
+                        .attr('fill', '#4aff4a')
+                        .attr('stroke', '#2acf2a')
+                        .attr('stroke-width', 1)
+                        .attr('class', 'port-output');
+                    d.outputPort = { x: 0, y: h/2 + 6 };
+                }
+
+                // Add type icon
+                nodeGroup.append('text')
+                    .attr('text-anchor', 'middle')
+                    .attr('dy', 5)
+                    .text(style.icon)
+                    .style('font-size', '12px')
+                    .style('font-weight', 'bold')
+                    .style('fill', 'white')
+                    .style('pointer-events', 'none');
+            });
+
+            // Add block name labels
+            node.append('text')
+                .attr('text-anchor', 'middle')
+                .attr('dy', -40)
+                .text(d => d.name)
+                .style('font-size', '12px')
+                .style('pointer-events', 'none');
+
+            // Update positions on simulation tick
+            simulation.on('tick', () => {
+                link.attr('d', d => {
+                    // Connect to ports instead of node centers
+                    let sx = d.source.x;
+                    let sy = d.source.y;
+                    let tx = d.target.x;
+                    let ty = d.target.y;
+
+                    // Source: use output port if available
+                    if (d.source.outputPort) {
+                        sx += d.source.outputPort.x;
+                        sy += d.source.outputPort.y;
+                    }
+
+                    // Target: use input port (or context port for context connections) if available
+                    if (d.type === 'context' && d.target.contextPort) {
+                        tx += d.target.contextPort.x;
+                        ty += d.target.contextPort.y;
+                    } else if (d.target.inputPort) {
+                        tx += d.target.inputPort.x;
+                        ty += d.target.inputPort.y;
+                    }
+
+                    // Create elbow/orthogonal arrows for cleaner layout
+                    const midY = (sy + ty) / 2;
+
+                    // For context connections (side-to-side), use horizontal elbow
+                    if (d.type === 'context') {
+                        const midX = (sx + tx) / 2;
+                        return `M${sx},${sy}L${midX},${sy}L${midX},${ty}L${tx},${ty}`;
+                    } else {
+                        // For vertical connections, use vertical elbow
+                        return `M${sx},${sy}L${sx},${midY}L${tx},${midY}L${tx},${ty}`;
+                    }
+                });
+
+                node.attr('transform', d => `translate(${d.x},${d.y})`);
+            });
+
+            function dragstarted(event, d) {
+                if (!event.active) simulation.alphaTarget(0.3).restart();
+                d.fx = d.x;
+                d.fy = d.y;
+            }
+
+            function dragged(event, d) {
+                d.fx = event.x;
+                d.fy = event.y;
+            }
+
+            function dragended(event, d) {
+                if (!event.active) simulation.alphaTarget(0);
+                // Keep position after dragging (hierarchical mode)
+                // Position is already fixed by drag, so no need to change fx/fy
+            }
+
+            // Highlight selected node
+            function highlightSelectedNode(nodeId) {
+                node.selectAll('circle, rect, polygon')
+                    .attr('stroke-width', function() {
+                        const d = d3.select(this.parentNode).datum();
+                        return d.id === nodeId ? 4 : 2;
+                    })
+                    .attr('filter', function() {
+                        const d = d3.select(this.parentNode).datum();
+                        return d.id === nodeId ? 'url(#glow)' : null;
+                    });
+            }
+
+            // Unhighlight all nodes
+            function unhighlightAll() {
+                node.selectAll('circle, rect, polygon')
+                    .attr('stroke-width', 2)
+                    .attr('filter', null);
+                unhighlightAllBitfieldBlocks();
+            }
+
+            // Click background to deselect
+            svg.on('click', () => {
+                selectedBlockId = null;
+                unhighlightAll();
+            });
+
+            // Zoom behavior
+            const zoom = d3.zoom()
+                .scaleExtent([0.1, 4])
+                .on('zoom', (event) => {
+                    g.attr('transform', event.transform);
+                });
+
+            svg.call(zoom);
+        }
+
+        function updateVisualization(step) {
+            updateBitFields(step);
+        }
+
+        function updateBitFields(step) {
+            const container = document.getElementById('bitfields-container');
+            container.innerHTML = '';
+
+            for (const [blockId, state] of Object.entries(step.block_states)) {
+                const metadata = step.block_metadata[blockId];
+
+                const blockDiv = document.createElement('div');
+                blockDiv.className = 'bitfield-block';
+                blockDiv.setAttribute('data-block-id', blockId);
+
+                // Preserve highlight if this block is selected
+                if (selectedBlockId !== null && parseInt(blockId) === selectedBlockId) {
+                    blockDiv.classList.add('highlighted');
+                }
+
+                const header = document.createElement('div');
+                header.className = 'bitfield-header';
+
+                const title = document.createElement('div');
+                title.className = 'bitfield-title';
+                title.textContent = metadata.name;
+
+                const stats = document.createElement('div');
+                stats.className = 'bitfield-stats';
+                stats.textContent = `${state.num_active} / ${state.num_bits} active (${(state.num_active / state.num_bits * 100).toFixed(1)}%)`;
+
+                header.appendChild(title);
+                header.appendChild(stats);
+
+                const grid = document.createElement('div');
+                grid.className = 'bitfield-grid';
+                grid.style.gridTemplateColumns = `repeat(${Math.min(64, state.num_bits)}, 1fr)`;
+
+                const activeSet = new Set(state.active_bits);
+
+                for (let i = 0; i < state.num_bits; i++) {
+                    const cell = document.createElement('div');
+                    cell.className = activeSet.has(i) ? 'bitfield-cell active' : 'bitfield-cell';
+                    grid.appendChild(cell);
+                }
+
+                blockDiv.appendChild(header);
+                blockDiv.appendChild(grid);
+                container.appendChild(blockDiv);
+            }
+        }
+
+        // Drag and drop functionality for plots and bitfield blocks
+        let draggedElement = null;
+
+        // Setup drag listeners on the containers
+        function setupDragAndDrop() {
+            const plotsContainer = document.getElementById('plots-container');
+            const bitfieldsContainer = document.getElementById('bitfields-container');
+
+            // Drag events for plot containers
+            plotsContainer.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('plot-container')) {
+                    draggedElement = e.target;
+                    e.target.style.opacity = '0.4';
+                }
+            });
+
+            plotsContainer.addEventListener('dragend', (e) => {
+                if (e.target.classList.contains('plot-container')) {
+                    e.target.style.opacity = '1';
+                }
+            });
+
+            plotsContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(plotsContainer, e.clientY);
+                if (afterElement == null) {
+                    plotsContainer.appendChild(draggedElement);
+                } else {
+                    plotsContainer.insertBefore(draggedElement, afterElement);
+                }
+            });
+
+            // Drag events for bitfield blocks (make them draggable)
+            bitfieldsContainer.addEventListener('dragstart', (e) => {
+                if (e.target.classList.contains('bitfield-block')) {
+                    draggedElement = e.target;
+                    e.target.style.opacity = '0.4';
+                }
+            });
+
+            bitfieldsContainer.addEventListener('dragend', (e) => {
+                if (e.target.classList.contains('bitfield-block')) {
+                    e.target.style.opacity = '1';
+                }
+            });
+
+            bitfieldsContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const afterElement = getDragAfterElement(bitfieldsContainer, e.clientY);
+                if (afterElement == null) {
+                    bitfieldsContainer.appendChild(draggedElement);
+                } else {
+                    bitfieldsContainer.insertBefore(draggedElement, afterElement);
+                }
+            });
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.plot-container:not(.dragging), .bitfield-block:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        // Context menu for adding plots
+        let contextMenu = null;
+
+        function createContextMenu() {
+            contextMenu = document.createElement('div');
+            contextMenu.id = 'context-menu';
+            contextMenu.style.cssText = `
+                position: fixed;
+                background: rgba(30, 30, 30, 0.95);
+                border: 2px solid #4a9eff;
+                border-radius: 4px;
+                padding: 8px 0;
+                display: none;
+                z-index: 10000;
+                min-width: 150px;
+            `;
+            document.body.appendChild(contextMenu);
+
+            // Close menu when clicking elsewhere
+            document.addEventListener('click', () => {
+                contextMenu.style.display = 'none';
+            });
+        }
+
+        function showPlotMenu(event, blockId, blockName, blockType) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (!contextMenu) createContextMenu();
+
+            contextMenu.innerHTML = '';
+            contextMenu.style.display = 'block';
+            contextMenu.style.left = event.pageX + 'px';
+            contextMenu.style.top = event.pageY + 'px';
+
+            // Add menu items
+            const menuItems = [
+                { label: 'Add Input/Output Plot', value: 'plot', isDanger: false },
+                { label: 'View BitField State', value: 'bitfield', isDanger: false },
+                { label: 'separator', value: 'separator' },
+                { label: 'Edit Parameters', value: 'edit', isDanger: false },
+                { label: 'Duplicate Block', value: 'duplicate', isDanger: false },
+                { label: 'separator', value: 'separator' },
+                { label: 'Delete Block', value: 'delete', isDanger: true },
+            ];
+
+            menuItems.forEach(item => {
+                if (item.value === 'separator') {
+                    const separator = document.createElement('div');
+                    separator.className = 'context-menu-separator';
+                    contextMenu.appendChild(separator);
+                    return;
+                }
+
+                const menuItem = document.createElement('div');
+                menuItem.className = item.isDanger ? 'context-menu-item danger' : 'context-menu-item';
+                menuItem.textContent = item.label;
+
+                menuItem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+
+                    if (item.value === 'plot') {
+                        // Add plot for this block if it doesn't exist
+                        const plotKey = `block_${blockId}`;
+                        if (!activePlots[plotKey]) {
+                            activePlots[plotKey] = createPlot(plotKey, blockName, 'output', '#A8D8A8');
+                            // Initialize time series data for this block
+                            if (!timeSeriesData.blocks[plotKey]) {
+                                timeSeriesData.blocks[plotKey] = {
+                                    values: [],
+                                    timestamps: []
+                                };
+                            }
+                        }
+                    } else if (item.value === 'edit') {
+                        // Open parameter editor for this block
+                        showBlockParameterEditor(blockType, blockId);
+                    } else if (item.value === 'duplicate') {
+                        // Duplicate block (TODO: Phase 6)
+                        alert('Block duplication will be implemented in a future phase');
+                    } else if (item.value === 'delete') {
+                        // Delete block
+                        if (confirm(`Are you sure you want to delete "${blockName}"?`)) {
+                            deleteBlock(blockId);
+                        }
+                    }
+
+                    contextMenu.style.display = 'none';
+                });
+                contextMenu.appendChild(menuItem);
+            });
+        }
+
+        // Initialize drag/drop when page loads
+        setupDragAndDrop();
+
+        // Make bitfield blocks draggable after they're created
+        const observer = new MutationObserver(() => {
+            document.querySelectorAll('.bitfield-block').forEach(block => {
+                if (!block.getAttribute('draggable')) {
+                    block.setAttribute('draggable', 'true');
+                }
+            });
+        });
+
+        observer.observe(document.getElementById('bitfields-container'), {
+            childList: true,
+            subtree: true
+        });
+    </script>
+</body>
+</html>

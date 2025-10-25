@@ -6,6 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a React + Vite application using ReactFlow (@xyflow/react) for building interactive node-based diagrams and flow charts. The project uses React 19 with JSX (not TypeScript) and follows a minimal Vite setup with HMR.
 
+### Reference Prototype
+- The original prototype for which this ReactFlow implementation was based on is located at `viewer_live.html`.
+
 ## Development Commands
 
 ```bash
@@ -53,7 +56,23 @@ All change handlers are memoized with useCallback to prevent unnecessary re-rend
 - Custom rule: allows unused vars matching `^[A-Z_]` pattern
 - Ignores: `dist/` directory
 
+### WASM Bindings
+- GCF Dashboard integrates with the WASM module generated from gcf-core-rust repository.  The project repository is located at `/Users/jacobeverist/projects/gcf-core-rust`
+- This repository has its own CLAUDE.md located at `/Users/jacobeverist/projects/gcf-core-rust/CLAUDE.md` and should be loaded for understanding the original project.
+- The WASM setup instructions are located at `/Users/jacobeverist/projects/gcf-core-rust/WASM_SETUP.md`
+- A copy of the WASM module is located locally in the `pkg/` directory
+
+
 ## File Patterns
 - JavaScript/JSX files use `.jsx` extension
 - No TypeScript in this project
 - CSS files in `src/` directory
+
+## Claude Report Guidelines
+- For every major execution such as running and debugging a battery of tests, implementing a phase of a plan, or generating a plan or report, always write the result to a markdown file.
+- For minor questions or changes, there is no need to create a markdown file.
+- For every major project, maintain a master project file for the plan and updating of the progress.
+- For a master project file, for each phase, step, or section of plan, link to an individually generated report if it exists.
+- Put all generated reports in .claude/reports/ directory.
+
+

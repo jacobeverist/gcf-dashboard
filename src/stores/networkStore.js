@@ -29,9 +29,26 @@ const useNetworkStore = create((set, get) => ({
     },
 
     onConnect: (connection) => {
+        // Determine edge type based on source node
+        const sourceNode = get().nodes.find(n => n.id === connection.source);
+        const isDataSource = sourceNode?.data?.blockType === 'DiscreteDataSource' ||
+                           sourceNode?.data?.blockType === 'ScalarDataSource';
+
+        const edgeType = isDataSource ? 'dataSource' : 'input';
+        const edgeData = isDataSource ? {
+            sourceType: sourceNode.data.sourceType,
+            animated: false, // Will be set to true during execution
+        } : {};
+
         set({
-            edges: addEdge({ ...connection, type: 'input' }, get().edges),
+            edges: addEdge({
+                ...connection,
+                type: edgeType,
+                data: edgeData,
+            }, get().edges),
         });
+
+        console.log(`[NetworkStore] Connected ${connection.source} → ${connection.target} (type: ${edgeType})`);
     },
 
     addNode: (node) => {
