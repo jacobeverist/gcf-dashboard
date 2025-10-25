@@ -1,0 +1,165 @@
+/* Custom Node Styles */
+.custom-node {
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-primary);
+    border-radius: var(--radius-md);
+    padding: 10px;
+    min-width: 120px;
+    transition: all var(--transition-fast);
+}
+
+.custom-node:hover {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 12px rgba(74, 158, 255, 0.3);
+}
+
+.custom-node.selected {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 16px rgba(74, 158, 255, 0.5);
+}
+
+.node-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.node-icon {
+    flex-shrink: 0;
+}
+
+/* Icon Shapes - Smaller than palette */
+.node-icon.triangle {
+    width: 0;
+    height: 0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-bottom: 15px solid;
+}
+
+.node-icon.square {
+    width: 18px;
+    height: 18px;
+    border-radius: 3px;
+}
+
+.node-icon.horizontal-rect {
+    width: 22px;
+    height: 14px;
+    border-radius: 3px;
+}
+
+.node-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+}
+
+.node-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.node-id {
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+}
+
+.node-ports {
+    display: flex;
+    justify-content: space-between;
+    margin-top: var(--spacing-sm);
+    padding-top: var(--spacing-sm);
+    border-top: 1px solid var(--border-primary);
+}
+
+.port-group {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.port-label {
+    font-size: 9px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.port-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border-secondary);
+}
+
+.port-indicator.active {
+    background: var(--accent-green);
+}
+
+.node-state-preview {
+    margin-top: var(--spacing-sm);
+    padding: 6px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+    color: var(--text-secondary);
+    font-family: 'Courier New', monospace;
+}
+
+/* Node type specific colors */
+.custom-node.scalar {
+    border-left: 3px solid var(--block-scalar);
+}
+
+.custom-node.discrete {
+    border-left: 3px solid var(--block-discrete);
+}
+
+.custom-node.persistence {
+    border-left: 3px solid var(--block-persistence);
+}
+
+.custom-node.pooler {
+    border-left: 3px solid var(--block-pooler);
+}
+
+.custom-node.classifier {
+    border-left: 3px solid var(--block-classifier);
+}
+
+.custom-node.sequence {
+    border-left: 3px solid var(--block-sequence);
+}
+
+.custom-node.context {
+    border-left: 3px solid var(--block-context);
+}
+
+/* React Flow Handle Customization */
+.react-flow__handle {
+    width: 10px;
+    height: 10px;
+    background: var(--accent-blue);
+    border: 2px solid var(--bg-tertiary);
+}
+
+.react-flow__handle-top {
+    top: -5px;
+}
+
+.react-flow__handle-bottom {
+    bottom: -5px;
+}
+
+.react-flow__handle-left {
+    left: -5px;
+}
+
+.react-flow__handle-right {
+    right: -5px;
+}

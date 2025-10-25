@@ -1,52 +1,25 @@
-import {
-    Background,
-    Controls,
-    MiniMap,
-    ReactFlow,
-    addEdge,
-    applyEdgeChanges,
-    applyNodeChanges
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
-import { useCallback, useState } from 'react';
-
-const initialNodes = [
-    { id: 'n1', position: { x: 0, y: 0 }, data: { label: 'Node 1' } },
-    { id: 'n2', position: { x: 0, y: 100 }, data: { label: 'Node 2' } },
-];
-const initialEdges = [{ id: 'n1-n2', source: 'n1', target: 'n2' }];
+import Header from './components/layout/Header';
+import BlockPalette from './components/layout/BlockPalette';
+import NetworkPanel from './components/layout/NetworkPanel';
+import DataPanel from './components/layout/DataPanel';
+import useWasmNetwork from './hooks/useWasmNetwork';
+import useExecutionLoop from './hooks/useExecutionLoop';
 
 export default function App() {
-    const [nodes, setNodes] = useState(initialNodes);
-    const [edges, setEdges] = useState(initialEdges);
+    // Initialize WASM network
+    useWasmNetwork();
 
-    const onNodesChange = useCallback(
-        (changes) => setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
-        [],
-    );
-    const onEdgesChange = useCallback(
-        (changes) => setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
-        [],
-    );
-    const onConnect = useCallback(
-        (params) => setEdges((edgesSnapshot) => addEdge(params, edgesSnapshot)),
-        [],
-    );
+    // Run execution loop
+    useExecutionLoop();
 
     return (
-        <div style={{ width: '100vw', height: '100vh' }}>
-            <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                fitView
-            >
-                <Controls />
-                <MiniMap />
-                <Background variant="dots" gap={12} size={1} />
-            </ReactFlow>
+        <div id="container">
+            <Header />
+            <div id="main-content">
+                <BlockPalette />
+                <NetworkPanel />
+                <DataPanel />
+            </div>
         </div>
     );
 }

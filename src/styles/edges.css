@@ -1,0 +1,54 @@
+/* Custom Edge Styles */
+
+/* Input Edge - Solid line */
+.react-flow__edge.input-edge .react-flow__edge-path {
+    stroke: var(--accent-blue);
+    stroke-width: 2;
+}
+
+.react-flow__edge.input-edge.selected .react-flow__edge-path {
+    stroke: var(--accent-blue);
+    stroke-width: 3;
+}
+
+.react-flow__edge.input-edge:hover .react-flow__edge-path {
+    stroke: var(--accent-blue-hover);
+}
+
+/* Context Edge - Dashed line */
+.react-flow__edge.context-edge .react-flow__edge-path {
+    stroke: var(--accent-orange);
+    stroke-width: 2;
+    stroke-dasharray: 5, 5;
+}
+
+.react-flow__edge.context-edge.selected .react-flow__edge-path {
+    stroke: var(--accent-orange);
+    stroke-width: 3;
+}
+
+.react-flow__edge.context-edge:hover .react-flow__edge-path {
+    stroke: #ff8a4a;
+}
+
+/* Animated edges during execution */
+.react-flow__edge.animated .react-flow__edge-path {
+    stroke-dasharray: 5;
+    animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+    to {
+        stroke-dashoffset: -10;
+    }
+}
+
+/* Edge labels */
+.react-flow__edge-textbg {
+    fill: var(--bg-tertiary);
+}
+
+.react-flow__edge-text {
+    fill: var(--text-primary);
+    font-size: 10px;
+}

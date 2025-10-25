@@ -1,14 +1,9 @@
-
-
-html,
-body {
-    margin: 0;
-    font-family: sans-serif;
-}
+/* Import Theme and Layout Styles */
+@import './styles/theme.css';
+@import './styles/layout.css';
 
 #app {
     width: 100vw;
     height: 100vh;
 }
-
 

@@ -1,0 +1,199 @@
+/* Dark Theme Variables */
+:root {
+    /* Background Colors */
+    --bg-primary: #1a1a1a;
+    --bg-secondary: #1e1e1e;
+    --bg-tertiary: #2a2a2a;
+    --bg-quaternary: #3a3a3a;
+
+    /* Border Colors */
+    --border-primary: #3a3a3a;
+    --border-secondary: #4a4a4a;
+
+    /* Text Colors */
+    --text-primary: #e0e0e0;
+    --text-secondary: #888;
+    --text-tertiary: #666;
+
+    /* Accent Colors */
+    --accent-blue: #4a9eff;
+    --accent-blue-hover: #3a8eef;
+    --accent-green: #4aff4a;
+    --accent-orange: #ff9a4a;
+    --accent-red: #ff4a4a;
+    --accent-red-hover: #ef3a3a;
+
+    /* Block Type Colors */
+    --block-scalar: #8DB4E2;
+    --block-discrete: #E2A98D;
+    --block-persistence: #C48DE2;
+    --block-pooler: #A8D8A8;
+    --block-classifier: #E2A8E2;
+    --block-sequence: #E2E28D;
+    --block-context: #8DE2E2;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 20px;
+    --spacing-xl: 30px;
+
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+
+    /* Shadows */
+    --shadow-sm: 0 0 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 0 16px rgba(0, 0, 0, 0.4);
+    --shadow-glow-green: 0 0 8px var(--accent-green);
+    --shadow-glow-orange: 0 0 8px var(--accent-orange);
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.2s ease;
+    --transition-slow: 0.3s ease;
+}
+
+/* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+}
+
+/* Button Styles */
+button {
+    background: var(--bg-quaternary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    transition: background var(--transition-normal);
+    font-family: inherit;
+}
+
+button:hover:not(:disabled) {
+    background: var(--border-secondary);
+}
+
+button.primary {
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: white;
+}
+
+button.primary:hover:not(:disabled) {
+    background: var(--accent-blue-hover);
+}
+
+button.danger {
+    background: var(--accent-red);
+    border-color: var(--accent-red);
+    color: white;
+}
+
+button.danger:hover:not(:disabled) {
+    background: var(--accent-red-hover);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Select Styles */
+select {
+    background: var(--bg-quaternary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-secondary);
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px;
+    font-family: inherit;
+}
+
+select:focus {
+    outline: 2px solid var(--accent-blue);
+    outline-offset: 1px;
+}
+
+/* Input Styles */
+input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+    background: var(--bg-quaternary);
+    height: 6px;
+    border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    background: var(--accent-blue);
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    margin-top: -5px;
+}
+
+input[type="range"]::-moz-range-track {
+    background: var(--bg-quaternary);
+    height: 6px;
+    border-radius: 3px;
+}
+
+input[type="range"]::-moz-range-thumb {
+    background: var(--accent-blue);
+    height: 16px;
+    width: 16px;
+    border-radius: 50%;
+    border: none;
+}
+
+input[type="checkbox"] {
+    cursor: pointer;
+}
+
+/* Label Styles */
+label {
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-quaternary);
+    border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border-secondary);
+}
