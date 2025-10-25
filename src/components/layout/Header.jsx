@@ -3,13 +3,14 @@ import clsx from 'clsx';
 import useExecutionStore from '../../stores/executionStore';
 import useNetworkStore from '../../stores/networkStore';
 import useDemoInitializer from '../../hooks/useDemoInitializer';
+import useLayoutAlgorithm from '../../hooks/useLayoutAlgorithm';
 import { getDemoDescriptions } from '../../utils/demoConfigs';
 
 const demoDescriptions = getDemoDescriptions();
 
 export default function Header() {
     const [selectedDemo, setSelectedDemo] = useState('');
-    const [speed, setSpeedValue] = useState(100);
+    const [speed, setSpeedValue] = useState(50);
 
     const isRunning = useExecutionStore((state) => state.isRunning);
     const wasmReady = useExecutionStore((state) => state.wasmReady);
@@ -29,6 +30,7 @@ export default function Header() {
     const reset = useNetworkStore((state) => state.reset);
 
     const { initializeDemo } = useDemoInitializer();
+    const { applyHierarchical } = useLayoutAlgorithm();
 
     const handleDemoChange = (e) => {
         const demo = e.target.value;
@@ -124,6 +126,7 @@ export default function Header() {
                     </button>
                     <button
                         id="reset-layout-btn"
+                        onClick={applyHierarchical}
                         disabled={!networkHasNodes || isRunning}
                     >
                         Reset Layout

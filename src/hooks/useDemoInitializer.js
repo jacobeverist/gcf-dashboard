@@ -4,6 +4,7 @@ import useExecutionStore from '../stores/executionStore';
 import useVisualizationStore from '../stores/visualizationStore';
 import { addBlock, connectBlocks } from '../utils/wasmBridge';
 import { getDemoConfig } from '../utils/demoConfigs';
+import { applyHierarchicalLayout } from '../utils/layoutAlgorithms';
 
 /**
  * Hook to initialize demo networks
@@ -87,8 +88,11 @@ export default function useDemoInitializer() {
             edges.push(edge);
         });
 
+        // Apply hierarchical layout
+        const layoutedNodes = applyHierarchicalLayout(nodes, edges);
+
         // Update stores
-        setNodes(nodes);
+        setNodes(layoutedNodes);
         setEdges(edges);
         setNetworkStatus(`Network: ${nodes.length} blocks`);
 

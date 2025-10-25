@@ -1,18 +1,46 @@
-import { ReactFlow, Background, Controls, MiniMap } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, useReactFlow } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from '../nodes/nodeTypes';
 import { edgeTypes } from '../edges/edgeTypes';
 import useNetworkStore from '../../stores/networkStore';
+import useNetworkPersistence from '../../hooks/useNetworkPersistence';
 
-export default function NetworkPanel() {
+export default function NetworkPanel({ onDrop, onDragOver }) {
+    const reactFlowInstance = useReactFlow();
     const nodes = useNetworkStore((state) => state.nodes);
     const edges = useNetworkStore((state) => state.edges);
     const onNodesChange = useNetworkStore((state) => state.onNodesChange);
     const onEdgesChange = useNetworkStore((state) => state.onEdgesChange);
     const onConnect = useNetworkStore((state) => state.onConnect);
 
+    const { saveNetwork, loadNetwork } = useNetworkPersistence();
+
+    const handleDelete = () => {
+        const selectedNodes = reactFlowInstance.getNodes().filter((node) => node.selected);
+        const selectedEdges = reactFlowInstance.getEdges().filter((edge) => edge.selected);
+
+        if (selectedNodes.length === 0 && selectedEdges.length === 0) {
+            console.log('[Delete] No nodes or edges selected');
+            return;
+        }
+
+        // Delete selected nodes and edges
+        selectedNodes.forEach((node) => {
+            useNetworkStore.getState().removeNode(node.id);
+        });
+
+        selectedEdges.forEach((edge) => {
+            useNetworkStore.getState().removeEdge(edge.id);
+        });
+
+        console.log('[Delete] Removed:', {
+            nodes: selectedNodes.length,
+            edges: selectedEdges.length,
+        });
+    };
+
     return (
-        <div id="network-panel">
+        <div id="network-panel" onDrop={onDrop} onDragOver={onDragOver}>
             {/* Editor Toolbar */}
             <div id="editor-toolbar">
                 <div className="editor-tool active" id="tool-select" title="Select Mode (V)">
@@ -21,13 +49,31 @@ export default function NetworkPanel() {
                 <div className="editor-tool" id="tool-connect" title="Add Connection (C)">
                     🔗
                 </div>
-                <div className="editor-tool" id="tool-delete" title="Delete Selected">
+                <div
+                    className="editor-tool"
+                    id="tool-delete"
+                    title="Delete Selected (Delete)"
+                    onClick={handleDelete}
+                    style={{ cursor: 'pointer' }}
+                >
                     🗑️
                 </div>
-                <div className="editor-tool" id="tool-save" title="Save Network">
+                <div
+                    className="editor-tool"
+                    id="tool-save"
+                    title="Save Network"
+                    onClick={saveNetwork}
+                    style={{ cursor: 'pointer' }}
+                >
                     💾
                 </div>
-                <div className="editor-tool" id="tool-load" title="Load Network">
+                <div
+                    className="editor-tool"
+                    id="tool-load"
+                    title="Load Network"
+                    onClick={loadNetwork}
+                    style={{ cursor: 'pointer' }}
+                >
                     📂
                 </div>
             </div>
