@@ -338,6 +338,64 @@ export function executeNetwork(network, learn = true) {
     }
 }
 
+
+/**
+ * Get current execution state, blocks, bitfields, and connections
+ * @param {WasmNetwork} network - Network instance
+ * @returns {Uint8Array|null} Bitfield state
+ */
+export function getExecutionState(network) {
+    if (!network) return null;
+
+    try {
+        const stateJson = network.get_state_json();
+        if (!stateJson) return null;
+
+        console.log(`[WASM Bridge] json Execution State:`, stateJson);
+
+        const state = JSON.parse(stateJson);
+
+        console.log(`[WASM Bridge] Object state:`, state);
+
+        const blockStates = state.block_states;
+        const blockMetadata = state.block_metadata;
+        const connections = state.connections;
+
+        // console.log(`[WASM Bridge] Execution State: ${state}`);
+
+        // connections.forEach(connection => {
+        //     const {source_id, target_id, connection_type, time_offset} = connection;
+        // });
+        // blockMetadata.forEach(blockData => {
+        //     const {id, name, block_type, num_statelets, num_active} = blockData;
+        //     //const {id, name, block_type, num_statelets, num_active} = thisBlockMetadata || {};
+        // });
+
+        for (const key in blockStates) {
+            const blockState = blockStates[key];
+            const {num_bits, active_bits, num_active} = blockState || {};
+            const activeSet = new Set(active_bits);
+            if (blockState && blockState.num_bits) {
+                let blockArray = new Uint8Array(num_bits);
+                // Convert state to Uint8Array
+                for (let i = 0; i < num_bits; i++) {
+                    blockArray[i] = activeSet.has(i) ? 1 : 0;
+                }
+            }
+            console.log(`${key}: ${blockStates[key]}`);
+        }
+
+        console.log(`[WASM Bridge] Block States: ${blockStates}`);
+
+        return state;
+
+    } catch (error) {
+        console.error('[WASM Bridge] Failed to get execution state:', error);
+        return new {};
+    }
+}
+
+
 /**
  * Get block state (bitfield) from trace
  * Note: Real WASM uses trace-based visualization
