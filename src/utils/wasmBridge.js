@@ -309,7 +309,7 @@ export function rebuildNetwork(network) {
         });
 
         // Start recording for visualization
-        network.start_recording();
+        // network.start_recording();
 
         network._needsBuild = false;
         console.log('[WASM Bridge] Network rebuilt and ready for execution');
@@ -351,11 +351,11 @@ export function getExecutionState(network) {
         const stateJson = network.get_state_json();
         if (!stateJson) return null;
 
-        console.log(`[WASM Bridge] json Execution State:`, stateJson);
+        // console.log(`[WASM Bridge] json Execution State:`, stateJson);
 
         const state = JSON.parse(stateJson);
 
-        console.log(`[WASM Bridge] Object state:`, state);
+        // console.log(`[WASM Bridge] Object state:`, state);
 
         const blockStates = state.block_states;
         const blockMetadata = state.block_metadata;
@@ -382,10 +382,10 @@ export function getExecutionState(network) {
                     blockArray[i] = activeSet.has(i) ? 1 : 0;
                 }
             }
-            console.log(`${key}: ${blockStates[key]}`);
+            // console.log(`${key}: ${blockStates[key]}`);
         }
 
-        console.log(`[WASM Bridge] Block States: ${blockStates}`);
+        // console.log(`[WASM Bridge] Block States: ${blockStates}`);
 
         return state;
 
@@ -486,11 +486,11 @@ export function getBlockState(network, handle) {
  * @returns {number} Output value
  */
 export function getBlockOutput(network, handle) {
-    if (!network) return 0;
+    if (!network) return undefined;
 
     try {
         const metadata = network._blockMetadata.get(handle);
-        if (!metadata) return 0;
+        if (!metadata) return undefined;
 
         // For classifiers, return probability
         if (metadata.type === 'PatternClassifier') {
@@ -506,6 +506,8 @@ export function getBlockOutput(network, handle) {
         }
 
         // For others, use trace data
+        // FIXME: no other blocks have data value outputs
+        /*
         const traceJson = network.get_trace_json();
         if (traceJson) {
             const trace = JSON.parse(traceJson);
@@ -514,11 +516,12 @@ export function getBlockOutput(network, handle) {
                 return blockTrace.output;
             }
         }
+        */
 
-        return 0;
+        return undefined;
     } catch (error) {
         console.error('[WASM Bridge] Failed to get block output:', error);
-        return 0;
+        return undefined;
     }
 }
 

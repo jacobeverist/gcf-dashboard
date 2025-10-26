@@ -56,22 +56,22 @@ export const DEMOS = {
         name: 'Sequence Learning',
         description: 'Learn and predict temporal sequences',
         blocks: [
-            // {
-            //     type: 'ScalarDataSource',
-            //     position: {x: 100, y: 50},
-            //     label: 'Sine Wave',
-            //     params: {
-            //         pattern: 'sine',
-            //         amplitude: 0.5,
-            //         frequency: 0.1,
-            //         offset: 0.5,
-            //         noise: 0,
-            //     },
-            // },
+            {
+                type: 'ScalarDataSource',
+                position: {x: 100, y: 50},
+                label: 'Sine Wave Data',
+                params: {
+                    pattern: 'sine',
+                    amplitude: 0.5,
+                    frequency: 0.02,
+                    offset: 0.5,
+                    noise: 0,
+                },
+            },
             {
                 type: 'ScalarTransformer',
                 position: {x: 100, y: 200},
-                label: 'Input Scalar',
+                label: 'Scalar Transformer',
                 params: {
                     min_val: 0.0,
                     max_val: 1.0,
@@ -84,9 +84,8 @@ export const DEMOS = {
             {
                 type: 'SequenceLearner',
                 position: {x: 100, y: 350},
-                label: 'Sequence Memory',
+                label: 'Sequence Learner',
                 params: {
-                    //  mem_size: 256, history: 10,
                     num_c: 64,
                     num_spc: 10,
                     num_dps: 10,
@@ -100,29 +99,29 @@ export const DEMOS = {
                     seed: 42
                 },
             },
-            // {
-            //     type: 'PatternPooler',
-            //     position: {x: 150, y: 400},
-            //     label: 'Feature Pool',
-            //     params: {
-                    // num_s: 64,
-                    // num_as: 8,
-                    // perm_thr: 20,
-                    // perm_inc: 2,
-                    // perm_dec: 1,
-                    // pct_pool: 0.8,
-                    // pct_conn: 0.5,
-                    // pct_learn: 0.3,
-                    // always_update: false,
-                    // num_t: 2,
-                    // seed: 42,
-                // },
-            // },
+            {
+                type: 'PatternPooler',
+                position: {x: 150, y: 400},
+                label: 'Pattern Pooler',
+                params: {
+                    num_s: 64,
+                    num_as: 8,
+                    perm_thr: 20,
+                    perm_inc: 2,
+                    perm_dec: 1,
+                    pct_pool: 0.8,
+                    pct_conn: 0.5,
+                    pct_learn: 0.3,
+                    always_update: false,
+                    num_t: 2,
+                    seed: 42,
+                },
+            },
         ],
         connections: [
             {sourceIndex: 0, targetIndex: 1, type: 'input'},
-            // {sourceIndex: 1, targetIndex: 2, type: 'input'},
-            // {sourceIndex: 1, targetIndex: 2, type: 'input'},
+            {sourceIndex: 1, targetIndex: 2, type: 'input'},
+            {sourceIndex: 2, targetIndex: 3, type: 'input'},
         ],
     },
 

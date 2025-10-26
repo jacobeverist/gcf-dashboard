@@ -5,12 +5,67 @@ import useVisualizationStore from '../stores/visualizationStore';
 import useDataSourceStore from '../stores/dataSourceStore';
 import {
     executeNetwork,
-    getBlockState,
+    // getBlockState,
+    getExecutionState,
     getBlockOutput,
     setScalarValue,
     setDiscreteValue,
-    getExecutionState
 } from '../utils/wasmBridge';
+
+/**
+ * Extract the data from a single block given the ExecutionState data received over WASM
+ * @param {Object} networkState - ExecutionState data of entire network
+ * @param {int} handle - wasm handle of block of interest
+ * @returns {Uint8Array|null} Bitfield state
+ */
+function extractBlockState(networkState, handle) {
+
+    if (!networkState) return null;
+
+    try {
+
+        const blockStates = networkState.block_states;
+        const blockMetadata = networkState.block_metadata;
+        const connections = networkState.connections;
+
+        // connections.forEach(connection => {
+        //     const {source_id, target_id, connection_type, time_offset} = connection;
+        // });
+        // blockMetadata.forEach(blockData => {
+        //     const {id, name, block_type, num_statelets, num_active} = blockData;
+        //     //const {id, name, block_type, num_statelets, num_active} = thisBlockMetadata || {};
+        // });
+
+        const blockState = blockStates[handle];
+        let {num_bits, active_bits, num_active} = blockState || {};
+        const activeSet = new Set(active_bits);
+        if (blockState && blockState.num_bits) {
+            let blockArray = new Uint8Array(num_bits);
+            // Convert state to Uint8Array
+            for (let i = 0; i < num_bits; i++) {
+                blockArray[i] = activeSet.has(i) ? 1 : 0;
+            }
+            return blockArray;
+        }
+
+        // console.log(`[Execution Loop] Block States: ${blockStates}`);
+
+        // const blockTrace = stepTrace.block_states?.[handle];
+
+        // extract block state and metadata from this trace, assuming that there is only one step
+        // const {id, name, block_type, num_statelets, num_active2} = blockMetadata[handle] || {};
+        // console.log(`[Execution Loop] Block State: ${handle} (${name}) - Size - ${num_bits} - Type: ${block_type} - Active: ${activeSet.size} / ${num_active}`);
+        // console.log(`[Execution Loop] Active States: ${active_bits}`);
+
+        // Fallback: return empty array
+        return new Uint8Array(32);
+    } catch (error) {
+        console.error('[Execution Loop] Failed to get block state:', error);
+        return new Uint8Array(32);
+    }
+
+}
+
 
 /**
  * Hook to manage the execution loop
@@ -59,57 +114,8 @@ export default function useExecutionLoop() {
         };
     }, [isRunning, speed, wasmNetwork]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    function extractBlockState(networkState, handle) {
-
-        if (!networkState) return null;
-
-        try {
-
-            const blockStates = networkState.block_states;
-            const blockMetadata = networkState.block_metadata;
-            const connections = networkState.connections;
-
-            // connections.forEach(connection => {
-            //     const {source_id, target_id, connection_type, time_offset} = connection;
-            // });
-            // blockMetadata.forEach(blockData => {
-            //     const {id, name, block_type, num_statelets, num_active} = blockData;
-            //     //const {id, name, block_type, num_statelets, num_active} = thisBlockMetadata || {};
-            // });
-
-            const blockState = blockStates[handle];
-            let {num_bits, active_bits, num_active} = blockState || {};
-            const activeSet = new Set(active_bits);
-            if (blockState && blockState.num_bits) {
-                let blockArray = new Uint8Array(num_bits);
-                // Convert state to Uint8Array
-                for (let i = 0; i < num_bits; i++) {
-                    blockArray[i] = activeSet.has(i) ? 1 : 0;
-                }
-                return blockArray;
-            }
-
-            console.log(`[Execution Loop] Block States: ${blockStates}`);
-
-            // const blockTrace = stepTrace.block_states?.[handle];
-
-            // extract block state and metadata from this trace, assuming that there is only one step
-            const {id, name, block_type, num_statelets, num_active2} = blockMetadata[handle] || {};
-
-            console.log(`[Execution Loop] Block State: ${handle} (${name}) - Size - ${num_bits} - Type: ${block_type} - Active: ${activeSet.size} / ${num_active}`);
-            console.log(`[Execution Loop] Active States: ${active_bits}`);
-
-            // Fallback: return empty array
-            return new Uint8Array(32);
-        } catch (error) {
-            console.error('[Execution Loop] Failed to get block state:', error);
-            return new Uint8Array(32);
-        }
-
-    }
-
     function executeStep() {
-        if (!wasmNetwork) return;
+        // if (!wasmNetwork) return;
 
         try {
             // Step 1: Execute all data sources first
@@ -129,6 +135,9 @@ export default function useExecutionLoop() {
                     }
 
                     console.log(`[Execution Loop] Processing source ${sourceId} (${source.type}): value = ${value}`);
+
+                    console.log(`[Execution Loop] Dashboard nodes:`, nodes);
+                    console.log(`[Execution Loop] Dashboard edges:`, edges);
 
                     // Update the data source node's current value
                     const sourceNode = nodes.find((node) => node.data.sourceId === sourceId);
@@ -222,10 +231,9 @@ export default function useExecutionLoop() {
             }
 
             // Step 3: Execute one step in the WASM network
-            // wasmNetwork.start_recording();
-            console.log(`[Execution Loop is recording:`, wasmNetwork.is_recording());
+            // console.log(`[Execution Loop is recording:`, wasmNetwork.is_recording());
             executeNetwork(wasmNetwork, learningEnabled);
-            console.log(`[Execution Loop] executeNetwork() on`, wasmNetwork);
+            // console.log(`[Execution Loop] executeNetwork() on`, wasmNetwork);
 
             // Get current timestamp
             const timestamp = Date.now();
@@ -236,7 +244,7 @@ export default function useExecutionLoop() {
             // const stateJson = wasmNetwork.get_state_json();
             // console.log(`[Execution Loop] get_state_json():`, stateJson);
             const networkState = getExecutionState(wasmNetwork);
-            console.log(`[Execution Loop] getExecutionState():`, networkState);
+            // console.log(`[Execution Loop] getExecutionState():`, networkState);
 
             // Step 4: Update state for all nodes
             nodes.forEach((node) => {
@@ -244,9 +252,8 @@ export default function useExecutionLoop() {
                 if (handle === undefined) return;
 
                 // Get block state (bitfield)
-                // const state = getBlockState(wasmNetwork, handle);
                 const state = extractBlockState(networkState, handle);
-                console.log(`[Execution Loop] getBlockState(${handle}) =`, state,
+                console.log(`[Execution Loop] extractBlockState(${handle}) =`, state,
                     `(${state ? state.length : 0} bits)`);
 
                 if (state) {
@@ -264,7 +271,13 @@ export default function useExecutionLoop() {
 
                 // Get block output value
                 const output = getBlockOutput(wasmNetwork, handle);
-                updateTimeSeries(node.id, output, timestamp);
+                if (!(!output && output !== 0)) {
+                    updateTimeSeries(node.id, output, timestamp);
+                }
+                // const output = getBlockOutput(wasmNetwork, handle);
+                // if (output != undefined) {
+                //     updateTimeSeries(node.id, output, timestamp);
+                // }
             });
 
             // Step 5: Increment step counter

@@ -28,9 +28,9 @@ function AppContent() {
             <div id="main-content">
                 <BlockPalette onDragStart={onDragStart} />
                 <NetworkPanel onDrop={onDrop} onDragOver={onDragOver} />
-                <div className="sidebar right" style={{ width: '300px' }}>
-                    <ParameterPanel />
-                </div>
+                {/*<div className="sidebar right" style={{ width: '300px' }}>*/}
+                {/*    <ParameterPanel />*/}
+                {/*</div>*/}
                 <DataPanel />
             </div>
         </div>
