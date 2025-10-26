@@ -5,7 +5,7 @@
  * It adapts the real WASM API to match the interface expected by the application.
  */
 
-import init, { WasmNetwork } from '../../pkg/gnomics.js';
+import init, {WasmNetwork} from '../../pkg/gnomics.js';
 
 let wasmInitialized = false;
 let wasmModule = null;
@@ -14,34 +14,82 @@ let wasmModule = null;
 const BLOCK_CONFIGS = {
     ScalarTransformer: {
         method: 'add_scalar_transformer',
-        defaults: { min_val: 0.0, max_val: 100.0, num_s: 2048, num_as: 256, num_t: 2, seed: 42 }
+        defaults: {min_val: 0.0, max_val: 100.0, num_s: 2048, num_as: 256, num_t: 2, seed: 42}
     },
     DiscreteTransformer: {
         method: 'add_discrete_transformer',
-        defaults: { num_v: 10, num_s: 512, num_t: 2, seed: 42 }
+        defaults: {num_v: 10, num_s: 512, num_t: 2, seed: 42}
     },
     PersistenceTransformer: {
         method: 'add_persistence_transformer',
-        defaults: { min_val: 0.0, max_val: 100.0, num_s: 2048, num_as: 256, max_step: 10, num_t: 2, seed: 42 }
+        defaults: {min_val: 0.0, max_val: 100.0, num_s: 2048, num_as: 256, max_step: 10, num_t: 2, seed: 42}
     },
     PatternPooler: {
         method: 'add_pattern_pooler',
-        defaults: { num_s: 1024, num_as: 40, perm_thr: 20, perm_inc: 2, perm_dec: 1, pct_pool: 0.8, pct_conn: 0.5, pct_learn: 0.3, always_update: false, num_t: 2, seed: 0 },
+        defaults: {
+            num_s: 1024,
+            num_as: 40,
+            perm_thr: 20,
+            perm_inc: 2,
+            perm_dec: 1,
+            pct_pool: 0.8,
+            pct_conn: 0.5,
+            pct_learn: 0.3,
+            always_update: false,
+            num_t: 2,
+            seed: 0
+        },
         needsInit: true
     },
     PatternClassifier: {
         method: 'add_pattern_classifier',
-        defaults: { num_l: 3, num_s: 1024, num_as: 30, perm_thr: 20, perm_inc: 2, perm_dec: 1, pct_pool: 0.8, pct_conn: 0.5, pct_learn: 0.3, num_t: 2, seed: 0 },
+        defaults: {
+            num_l: 3,
+            num_s: 1024,
+            num_as: 30,
+            perm_thr: 20,
+            perm_inc: 2,
+            perm_dec: 1,
+            pct_pool: 0.8,
+            pct_conn: 0.5,
+            pct_learn: 0.3,
+            num_t: 2,
+            seed: 0
+        },
         needsInit: true
     },
     SequenceLearner: {
         method: 'add_sequence_learner',
-        defaults: { num_c: 512, num_spc: 4, num_dps: 8, num_rpd: 32, d_thresh: 20, perm_thr: 20, perm_inc: 2, perm_dec: 1, num_t: 2, always_update: false, seed: 42 },
+        defaults: {
+            num_c: 512,
+            num_spc: 4,
+            num_dps: 8,
+            num_rpd: 32,
+            d_thresh: 20,
+            perm_thr: 20,
+            perm_inc: 2,
+            perm_dec: 1,
+            num_t: 2,
+            always_update: false,
+            seed: 42
+        },
         needsInit: true
     },
     ContextLearner: {
         method: 'add_context_learner',
-        defaults: { num_c: 512, num_spc: 4, num_dps: 8, num_rpd: 32, d_thresh: 20, perm_thr: 20, perm_inc: 2, perm_dec: 1, num_t: 2, always_update: false, seed: 42 },
+        defaults: {
+            num_c: 512,
+            num_spc: 4,
+            num_dps: 8,
+            num_rpd: 32,
+            d_thresh: 20,
+            perm_thr: 20,
+            perm_inc: 2,
+            perm_dec: 1,
+            num_t: 2,
+            always_update: false,
+            seed: 42
+        },
         needsInit: true
     }
 };
@@ -111,7 +159,7 @@ export function addBlock(network, blockType, config = {}) {
         }
 
         // Merge defaults with provided config
-        const params = { ...blockConfig.defaults, ...config };
+        const params = {...blockConfig.defaults, ...config};
         const name = config.name || blockType;
 
         // Call the appropriate WASM method
@@ -161,7 +209,7 @@ export function addBlock(network, blockType, config = {}) {
         }
 
         // Track metadata
-        network._blockMetadata.set(handle, { type: blockType, name });
+        network._blockMetadata.set(handle, {type: blockType, name});
         network._needsBuild = true;
 
         // Mark if this block needs init_block() called
@@ -304,13 +352,66 @@ export function getBlockState(network, handle) {
         const traceJson = network.get_trace_json();
         if (!traceJson) return null;
 
-        const trace = JSON.parse(traceJson);
-        const blockTrace = trace.blocks?.[handle];
+        console.log(`[WASM Bridge] json trace:`, traceJson);
 
-        if (blockTrace && blockTrace.state) {
+        const trace = JSON.parse(traceJson);
+
+        console.log(`[WASM Bridge] Object trace:`, trace);
+
+        const connectionsTrace = trace.connections;
+        const stepsTrace = trace.steps;
+        const totalSteps = trace.total_steps;
+
+        console.log(`[WASM Bridge] Steps: ${stepsTrace}`);
+
+        connectionsTrace.forEach(connection => {
+            const {source_id, target_id, connection_type, time_offset} = connection;
+        });
+
+        // data extracted from first step
+        // const firstStepTrace = trace.steps?.[0];
+        const firstStepTrace = stepsTrace[0];
+
+        console.log(`[WASM Bridge] First Step: ${firstStepTrace}`);
+
+        const stepNumber = firstStepTrace?.step_number || 0;
+        const blockStates = firstStepTrace?.block_states || {};
+        const blockMetadata = firstStepTrace?.block_metadata || {};
+
+        console.log(`[WASM Bridge] Block States: ${blockStates}`);
+
+        // const blockTrace = stepTrace.block_states?.[handle];
+
+        // extract block state and metadata from this trace, assuming that there is only one step
+        const thisBlockState = blockStates[handle];
+        const thisBlockMetadata = blockMetadata[handle];
+        const {id, name, block_type, num_statelets, num_active} = thisBlockMetadata || {};
+        const {num_bits, active_bits} = thisBlockState || {};
+        const activeSet = new Set(active_bits);
+
+        // [WASM Bridge] Block State: 0 (undefined) - Size - undefined - Type: undefined - Active: 0 / undefined
+
+        console.log(`[WASM Bridge] Block State: ${handle} (${name}) - Size - ${num_bits} - Type: ${block_type} - Active: ${activeSet.size} / ${num_active}`);
+        console.log(`[WASM Bridge] Active States: ${active_bits}`);
+
+        if (thisBlockState && thisBlockState.num_bits) {
+            let blockArray = new Uint8Array(num_bits);
             // Convert state to Uint8Array
-            return new Uint8Array(blockTrace.state);
+            for (let i = 0; i < num_bits; i++) {
+                blockArray[i] = activeSet.has(i) ? 1 : 0;
+            }
+            return blockArray;
         }
+
+        // const blockTrace = trace.blocks?.[handle];
+
+
+        // Uint8Array
+
+        // if (blockTrace && blockTrace.state) {
+            // Convert state to Uint8Array
+            // return new Uint8Array(blockTrace.state);
+        // }
 
         // Fallback: return empty array
         return new Uint8Array(32);

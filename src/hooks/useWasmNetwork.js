@@ -26,6 +26,8 @@ export default function useWasmNetwork() {
                     if (network) {
                         setWasmNetwork(network);
                         setError(null);
+                        console.log('[useWasmNetwork] createNetwork() sucessful. Network handle:', network);
+
                     } else {
                         throw new Error('Failed to create network instance');
                     }
@@ -38,6 +40,8 @@ export default function useWasmNetwork() {
                 setWasmError(err.message);
             } finally {
                 setIsLoading(false);
+                console.log('[useWasmNetwork] initializeWasm() successfully initialized');
+
             }
         }
 

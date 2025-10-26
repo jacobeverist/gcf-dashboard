@@ -88,10 +88,19 @@ export default function Header() {
                         disabled={isRunning}
                     >
                         <option value="">-- Select Demo --</option>
-                        <option value="sequence">Sequence Learning</option>
-                        <option value="classification">Classification</option>
-                        <option value="context">Context Learning</option>
-                        <option value="pooling">Feature Pooling</option>
+                        <optgroup label="Classic Demos">
+                            <option value="sequence">Sequence Learning</option>
+                            <option value="classification">Classification</option>
+                            <option value="context">Context Learning</option>
+                            <option value="pooling">Feature Pooling</option>
+                        </optgroup>
+                        <optgroup label="Data Source Demos">
+                            <option value="scalarSource">Scalar Data Source</option>
+                            <option value="discreteSource">Discrete Data Source</option>
+                            <option value="sensorFusion">Sensor Fusion</option>
+                            <option value="timeSeries">Time Series Learning</option>
+                            <option value="multiModal">Multi-Modal Input</option>
+                        </optgroup>
                     </select>
                 </div>
                 <div className="control-group">

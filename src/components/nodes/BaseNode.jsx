@@ -53,8 +53,8 @@ function BaseNode({ data, selected, type, iconShape, iconColor }) {
             {/* Context Handle (if applicable) */}
             {data.hasContext && (
                 <Handle
-                    type="source"
-                    position={Position.Right}
+                    type="target"
+                    position={Position.Left}
                     id="context"
                     style={{ background: 'var(--accent-orange)' }}
                 />

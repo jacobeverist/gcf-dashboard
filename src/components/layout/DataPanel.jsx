@@ -162,19 +162,24 @@ export default function DataPanel() {
                             Initialize a demo to see block states
                         </p>
                     ) : (
-                        nodes.map((node) => {
-                            const bitfield = bitfieldData[node.id];
-                            if (!bitfield) return null;
+                        nodes
+                            .filter(node => {
+                                // Only show bitfield for WASM blocks (nodes with wasmHandle)
+                                return node.data.wasmHandle !== undefined;
+                            })
+                            .map((node) => {
+                                const bitfield = bitfieldData[node.id];
+                                if (!bitfield) return null;
 
-                            return (
-                                <BitfieldGrid
-                                    key={node.id}
-                                    bitfield={bitfield}
-                                    blockId={node.id}
-                                    blockLabel={node.data.label}
-                                />
-                            );
-                        })
+                                return (
+                                    <BitfieldGrid
+                                        key={node.id}
+                                        bitfield={bitfield}
+                                        blockId={node.id}
+                                        blockLabel={node.data.label}
+                                    />
+                                );
+                            })
                     )}
                 </div>
             </div>

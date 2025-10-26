@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react';
+import {useEffect, useRef} from 'react';
 import useExecutionStore from '../stores/executionStore';
 import useNetworkStore from '../stores/networkStore';
 import useVisualizationStore from '../stores/visualizationStore';
 import useDataSourceStore from '../stores/dataSourceStore';
-import { executeNetwork, getBlockState, getBlockOutput, setScalarValue, setDiscreteValue } from '../utils/wasmBridge';
+import {executeNetwork, getBlockState, getBlockOutput, setScalarValue, setDiscreteValue} from '../utils/wasmBridge';
 
 /**
  * Hook to manage the execution loop
@@ -61,11 +61,18 @@ export default function useExecutionLoop() {
 
             // Step 2: Update data source nodes with current values
             if (Object.keys(sourceValues).length > 0) {
+                console.log(`[Execution Loop] Data sources generated:`, Object.keys(sourceValues).length, 'values');
+
                 Object.keys(sourceValues).forEach((sourceId) => {
                     const value = sourceValues[sourceId];
                     const source = getSource(sourceId);
 
-                    if (!source) return;
+                    if (!source) {
+                        console.warn(`[Execution Loop] Source ${sourceId} not found in store`);
+                        return;
+                    }
+
+                    console.log(`[Execution Loop] Processing source ${sourceId} (${source.type}): value = ${value}`);
 
                     // Update the data source node's current value
                     const sourceNode = nodes.find((node) => node.data.sourceId === sourceId);
@@ -75,19 +82,67 @@ export default function useExecutionLoop() {
                         });
                     }
 
+                    console.log(`[Execution Loop] Source node data:`, sourceNode.data);
+
+                    /*
+                    const sourceNodeData= {
+                        blockType : "ScalarDataSource",
+                        currentValue : null,
+                        enabled : true,
+                        hasInput : false,
+                        hasOutput : true,
+                        id : "node-1761453535746",
+                        label : "Scalar Source",
+                        params : {pattern: 'sine', amplitude: 1, frequency: 0.1, offset: 0, noise: 0},
+                        pattern : "sine",
+                        sourceId : "ds-1761453535745-0ghcytmuk",
+                        sourceType : "scalar"
+                    }
+                    */
+
                     // Find all edges from this data source
                     const outgoingEdges = edges.filter((edge) => edge.source === sourceNode?.id);
+
+                    console.log(`[Execution Loop] Found ${outgoingEdges.length} outgoing edges from source ${sourceId}`);
 
                     outgoingEdges.forEach((edge) => {
                         // Enable animation on data source edges during execution
                         if (edge.type === 'dataSource') {
-                            edge.data = { ...edge.data, animated: true };
+                            edge.data = {...edge.data, animated: true};
                         }
 
                         // Find the target node
                         const targetNode = nodes.find((node) => node.id === edge.target);
 
-                        if (!targetNode || !targetNode.data.wasmHandle) return;
+                        if (!targetNode) {
+                            console.warn(`[Execution Loop] Target node ${edge.target} not found`);
+                            return;
+                        }
+
+                        /*
+                        const targetNodeData = {
+                            blockType : "ScalarTransformer",
+                            hasContext : false,
+                            hasInput : true,
+                            hasOutput : true,
+                            id : "node-1761453531551-0",
+                            label : "Input Scalar",
+                            wasmHandle : 0
+                        }
+                        */
+
+                        console.log(`[Execution Loop] Target node found:`, edge.target);
+
+                        console.log(`[Execution Loop] Target node data:`, targetNode.data);
+                        // console.log(`[Execution Loop] Target node data keys:`, Object.keys(targetNode.data));
+                        // console.log(`[Execution Loop] Target node data keys:`, Object.values(targetNode.data));
+                        console.log(`[Execution Loop] Target node wasmHandle value:`, targetNode.data.wasmHandle);
+                        console.log(`[Execution Loop] Target node wasmHandle type:`, typeof targetNode.data.wasmHandle);
+
+                        if (targetNode.data.wasmHandle === undefined) {
+                            console.warn(`[Execution Loop] Target node ${edge.target} (${targetNode.data.blockType}) has no wasmHandle. Full data:`, targetNode.data);
+                            return;
+                        }
 
                         const handle = targetNode.data.wasmHandle;
                         const targetType = targetNode.data.blockType;
@@ -96,8 +151,12 @@ export default function useExecutionLoop() {
                         try {
                             if (source.type === 'scalar' && targetType === 'ScalarTransformer') {
                                 setScalarValue(wasmNetwork, handle, value);
+                                console.log(`[Execution Loop] Set scalar value ${value.toFixed(2)} on ${targetType} (handle: ${handle})`);
                             } else if (source.type === 'discrete' && targetType === 'DiscreteTransformer') {
                                 setDiscreteValue(wasmNetwork, handle, value);
+                                console.log(`[Execution Loop] Set discrete value ${value} on ${targetType} (handle: ${handle})`);
+                            } else {
+                                console.warn(`[Execution Loop] Type mismatch: ${source.type} source → ${targetType} transformer`);
                             }
                         } catch (error) {
                             console.error(`[Execution Loop] Error setting value on ${targetType}:`, error);
@@ -107,10 +166,16 @@ export default function useExecutionLoop() {
             }
 
             // Step 3: Execute one step in the WASM network
+            // wasmNetwork.start_recording();
+            console.log(`[Execution Loop is recording:`, wasmNetwork.is_recording());
             executeNetwork(wasmNetwork, learningEnabled);
+            console.log(`[Execution Loop] executeNetwork() on`, wasmNetwork);
 
             // Get current timestamp
             const timestamp = Date.now();
+
+            const traceJson = wasmNetwork.get_trace_json();
+            // console.log(`[Execution Loop] get_trace_json():`, traceJson);
 
             // Step 4: Update state for all nodes
             nodes.forEach((node) => {
@@ -119,6 +184,9 @@ export default function useExecutionLoop() {
 
                 // Get block state (bitfield)
                 const state = getBlockState(wasmNetwork, handle);
+                console.log(`[Execution Loop] getBlockState(${handle}) =`, state,
+                    `(${state ? state.length : 0} bits)`);
+
                 if (state) {
                     updateBitfield(node.id, state);
 
@@ -143,7 +211,7 @@ export default function useExecutionLoop() {
             }));
         } catch (error) {
             console.error('[Execution Loop] Error during step:', error);
-            useExecutionStore.setState({ isRunning: false });
+            useExecutionStore.setState({isRunning: false});
         }
     }
 
