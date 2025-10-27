@@ -43,12 +43,12 @@ export default function NetworkPanel({ onDrop, onDragOver }) {
         <div id="network-panel" onDrop={onDrop} onDragOver={onDragOver}>
             {/* Editor Toolbar */}
             <div id="editor-toolbar">
-                <div className="editor-tool active" id="tool-select" title="Select Mode (V)">
-                    🖱️
-                </div>
-                <div className="editor-tool" id="tool-connect" title="Add Connection (C)">
-                    🔗
-                </div>
+                {/*<div className="editor-tool active" id="tool-select" title="Select Mode (V)">*/}
+                {/*    🖱️*/}
+                {/*</div>*/}
+                {/*<div className="editor-tool" id="tool-connect" title="Add Connection (C)">*/}
+                {/*    🔗*/}
+                {/*</div>*/}
                 <div
                     className="editor-tool"
                     id="tool-delete"

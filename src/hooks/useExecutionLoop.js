@@ -4,12 +4,8 @@ import useNetworkStore from '../stores/networkStore';
 import useVisualizationStore from '../stores/visualizationStore';
 import useDataSourceStore from '../stores/dataSourceStore';
 import {
-    executeNetwork,
-    // getBlockState,
-    getExecutionState,
-    getBlockOutput,
-    setScalarValue,
-    setDiscreteValue,
+    executeNetwork, // getBlockState,
+    getExecutionState, getBlockOutput, setScalarValue, setDiscreteValue,
 } from '../utils/wasmBridge';
 
 /**
@@ -45,7 +41,9 @@ function extractBlockState(networkState, handle) {
             for (let i = 0; i < num_bits; i++) {
                 blockArray[i] = activeSet.has(i) ? 1 : 0;
             }
-            return blockArray;
+            console.log(`[Execution Loop] Block State:`, blockArray);
+            console.log(`[Execution Loop] Active Set:`, activeSet);
+            return {blockArray: blockArray, activeSet: activeSet};
         }
 
         // console.log(`[Execution Loop] Block States: ${blockStates}`);
@@ -58,10 +56,14 @@ function extractBlockState(networkState, handle) {
         // console.log(`[Execution Loop] Active States: ${active_bits}`);
 
         // Fallback: return empty array
-        return new Uint8Array(32);
+        const emptySet = new Set();
+        const emptyArray = new Uint8Array(32);
+        return {blockArray: emptyArray, activeSet: emptySet};
     } catch (error) {
         console.error('[Execution Loop] Failed to get block state:', error);
-        return new Uint8Array(32);
+        const emptySet = new Set();
+        const emptyArray = new Uint8Array(32);
+        return {blockArray: emptyArray, activeSet: emptySet};
     }
 
 }
@@ -201,8 +203,8 @@ export default function useExecutionLoop() {
                         console.log(`[Execution Loop] Target node data:`, targetNode.data);
                         // console.log(`[Execution Loop] Target node data keys:`, Object.keys(targetNode.data));
                         // console.log(`[Execution Loop] Target node data keys:`, Object.values(targetNode.data));
-                        console.log(`[Execution Loop] Target node wasmHandle value:`, targetNode.data.wasmHandle);
-                        console.log(`[Execution Loop] Target node wasmHandle type:`, typeof targetNode.data.wasmHandle);
+                        // console.log(`[Execution Loop] Target node wasmHandle value:`, targetNode.data.wasmHandle);
+                        // console.log(`[Execution Loop] Target node wasmHandle type:`, typeof targetNode.data.wasmHandle);
 
                         if (targetNode.data.wasmHandle === undefined) {
                             console.warn(`[Execution Loop] Target node ${edge.target} (${targetNode.data.blockType}) has no wasmHandle. Full data:`, targetNode.data);
@@ -215,11 +217,13 @@ export default function useExecutionLoop() {
                         // Set the value on the appropriate transformer type
                         try {
                             if (source.type === 'scalar' && targetType === 'ScalarTransformer') {
+                                // console.log(`[Execution Loop] Set scalar value ${value.toFixed(2)} on ${targetType} (handle: ${handle})`);
+                                console.log(`[Execution Loop] Set scalar value:`, value);
+                                console.log(`[Execution Loop] WasmNetwork:`, wasmNetwork);
                                 setScalarValue(wasmNetwork, handle, value);
-                                console.log(`[Execution Loop] Set scalar value ${value.toFixed(2)} on ${targetType} (handle: ${handle})`);
                             } else if (source.type === 'discrete' && targetType === 'DiscreteTransformer') {
-                                setDiscreteValue(wasmNetwork, handle, value);
                                 console.log(`[Execution Loop] Set discrete value ${value} on ${targetType} (handle: ${handle})`);
+                                setDiscreteValue(wasmNetwork, handle, value);
                             } else {
                                 console.warn(`[Execution Loop] Type mismatch: ${source.type} source → ${targetType} transformer`);
                             }
@@ -252,21 +256,27 @@ export default function useExecutionLoop() {
                 if (handle === undefined) return;
 
                 // Get block state (bitfield)
-                const state = extractBlockState(networkState, handle);
-                console.log(`[Execution Loop] extractBlockState(${handle}) =`, state,
-                    `(${state ? state.length : 0} bits)`);
+                const {blockArray, activeSet} = extractBlockState(networkState, handle);
 
-                if (state) {
-                    updateBitfield(node.id, state);
+                console.log(`[Execution Loop] extractBlockState(${handle}) =`, blockArray, activeSet);
+                // console.log(`[Execution Loop] extractBlockState(${handle}) =`, state,
+                //     `(${state ? state.length : 0} bits)`);
+
+                if (blockArray) {
+                    updateBitfield(node.id, blockArray);
+
+                    const activeIndices = Array.from(activeSet).map(b => b.toString()).join(' ');
+                    updateNodeData(node.id, {
+                        statePreview: activeIndices, hasOutput: true,
+                    });
 
                     // Update node state preview
-                    const previewBits = Array.from(state.slice(0, 8))
-                        .map(b => b ? '1' : '0')
-                        .join('');
-                    updateNodeData(node.id, {
-                        statePreview: previewBits,
-                        hasOutput: true,
-                    });
+                    // const previewBits = Array.from(blockArray.slice(0, 8))
+                    //     .map(b => b ? '1' : '0')
+                    //     .join('');
+                    // updateNodeData(node.id, {
+                    //     statePreview: previewBits, hasOutput: true,
+                    // });
                 }
 
                 // Get block output value
@@ -291,7 +301,6 @@ export default function useExecutionLoop() {
     }
 
     return {
-        isRunning,
-        executionStep,
+        isRunning, executionStep,
     };
 }

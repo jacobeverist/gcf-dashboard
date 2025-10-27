@@ -4,12 +4,15 @@
  * Visual representation of data source blocks on the canvas.
  * Data sources generate input data and have no input handle (output only).
  */
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import clsx from 'clsx';
+import DataSourceMiniPlot from '../visualizations/DataSourceMiniPlot';
 import '../../styles/nodes.css';
 
 function DataSourceNode({ data, selected, type, iconShape, iconColor }) {
+    const [plotVisible, setPlotVisible] = useState(data.plotVisible ?? true);
+
     // Get source type label
     const sourceTypeLabel = data.sourceType === 'discrete' ? 'Discrete' : 'Scalar';
 
@@ -26,6 +29,10 @@ function DataSourceNode({ data, selected, type, iconShape, iconColor }) {
         return data.currentValue.toString();
     };
 
+    // Check if we have history data for plotting
+    const hasHistory = data.history && data.history.length > 0;
+    const isScalar = data.sourceType === 'scalar';
+
     return (
         <div className={clsx('custom-node', 'data-source', type, { selected })}>
             {/* No input handle for data sources */}
@@ -37,6 +44,21 @@ function DataSourceNode({ data, selected, type, iconShape, iconColor }) {
                     <div className="node-name">{data.label || 'Data Source'}</div>
                     <div className="node-id">{data.id || 'N/A'}</div>
                 </div>
+                {/* Toggle button for plot */}
+                {hasHistory && isScalar && (
+                    <div className="node-toggle-buttons" style={{ pointerEvents: 'auto' }}>
+                        <button
+                            className="node-toggle-btn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setPlotVisible(!plotVisible);
+                            }}
+                            title={plotVisible ? 'Hide plot' : 'Show plot'}
+                        >
+                            📊
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Data Source Info */}
@@ -52,6 +74,16 @@ function DataSourceNode({ data, selected, type, iconShape, iconColor }) {
                 <div className="value-label">Current:</div>
                 <div className="value-display">{formatValue()}</div>
             </div>
+
+            {/* Embedded Mini Plot for Scalar Sources */}
+            {hasHistory && isScalar && plotVisible && (
+                <div className="node-plot-section" style={{ marginTop: '8px', pointerEvents: 'none' }}>
+                    <DataSourceMiniPlot
+                        data={data.history}
+                        color={iconColor}
+                    />
+                </div>
+            )}
 
             {/* Ports Info - Output only */}
             <div className="node-ports">

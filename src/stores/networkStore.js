@@ -1,9 +1,9 @@
 import {create} from 'zustand';
-import {devtools} from 'zustand/middleware'
+// import {devtools} from 'zustand/middleware'
 import {applyNodeChanges, applyEdgeChanges, addEdge} from '@xyflow/react';
 
 const useNetworkStore = create(
-    devtools(
+    // devtools(
         (set, get) => ({
             // State
             nodes: [],
@@ -230,6 +230,8 @@ const useNetworkStore = create(
                 });
                 get().clearHistory();
             },
-        })));
+        })
+    // )
+);
 
 export default useNetworkStore;

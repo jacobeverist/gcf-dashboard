@@ -8,6 +8,7 @@ import useWasmNetwork from './hooks/useWasmNetwork';
 import useExecutionLoop from './hooks/useExecutionLoop';
 import usePaletteDragDrop from './hooks/usePaletteDragDrop';
 import useKeyboardShortcuts from './hooks/useKeyboardShortcuts';
+import useNodeVisualizationSync from './hooks/useNodeVisualizationSync';
 
 function AppContent() {
     // Initialize WASM network
@@ -15,6 +16,9 @@ function AppContent() {
 
     // Run execution loop
     useExecutionLoop();
+
+    // Sync visualization data to nodes
+    useNodeVisualizationSync();
 
     // Drag and drop handlers
     const { onDragStart, onDrop, onDragOver } = usePaletteDragDrop();
@@ -31,7 +35,7 @@ function AppContent() {
                 {/*<div className="sidebar right" style={{ width: '300px' }}>*/}
                 {/*    <ParameterPanel />*/}
                 {/*</div>*/}
-                <DataPanel />
+                {/*<DataPanel />*/}
             </div>
         </div>
     );

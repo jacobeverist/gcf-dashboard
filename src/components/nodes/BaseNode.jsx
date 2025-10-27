@@ -1,9 +1,18 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import clsx from 'clsx';
+import NodeTimeSeriesPlot from '../visualizations/NodeTimeSeriesPlot';
+import NodeBitfieldPreview from '../visualizations/NodeBitfieldPreview';
 import '../../styles/nodes.css';
 
 function BaseNode({ data, selected, type, iconShape, iconColor }) {
+    const [plotVisible, setPlotVisible] = useState(data.plotVisible ?? true);
+    const [bitfieldVisible, setBitfieldVisible] = useState(data.bitfieldVisible ?? true);
+
+    // Check if we have plot data or bitfield data
+    const hasPlotData = data.plotData && data.plotData.length > 0;
+    const hasBitfield = data.bitfield && data.bitfield.length > 0;
+
     return (
         <div className={clsx('custom-node', type, { selected })}>
             {/* Input Handle */}
@@ -21,12 +30,63 @@ function BaseNode({ data, selected, type, iconShape, iconColor }) {
                     <div className="node-name">{data.label || type}</div>
                     <div className="node-id">{data.id || 'N/A'}</div>
                 </div>
+                {/* Toggle buttons for plots/bitfield */}
+                {(hasPlotData || hasBitfield) && (
+                    <div className="node-toggle-buttons" style={{ pointerEvents: 'auto' }}>
+                        {hasPlotData && (
+                            <button
+                                className="node-toggle-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setPlotVisible(!plotVisible);
+                                }}
+                                title={plotVisible ? 'Hide plot' : 'Show plot'}
+                            >
+                                📊
+                            </button>
+                        )}
+                        {hasBitfield && (
+                            <button
+                                className="node-toggle-btn"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setBitfieldVisible(!bitfieldVisible);
+                                }}
+                                title={bitfieldVisible ? 'Hide state' : 'Show state'}
+                            >
+                                🔢
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* State Preview (if available) */}
             {data.statePreview && (
                 <div className="node-state-preview">
                     {data.statePreview}
+                </div>
+            )}
+
+            {/* Embedded Time Series Plot */}
+            {hasPlotData && plotVisible && (
+                <div className="node-plot-section">
+                    <NodeTimeSeriesPlot
+                        data={data.plotData}
+                        color={iconColor}
+                        height={80}
+                        width={240}
+                    />
+                </div>
+            )}
+
+            {/* Embedded Bitfield Preview */}
+            {hasBitfield && bitfieldVisible && (
+                <div className="node-bitfield-section">
+                    <NodeBitfieldPreview
+                        bitfield={data.bitfield}
+                        maxBits={1024}
+                    />
                 </div>
             )}
 
